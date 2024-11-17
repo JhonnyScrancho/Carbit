@@ -1,3 +1,4 @@
+# main.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -23,44 +24,6 @@ if 'firebase_initialized' not in st.session_state:
     
 if st.session_state.firebase_initialized and 'firebase_mgr' not in st.session_state:
     st.session_state.firebase_mgr = FirebaseManager()
-
-def main():
-    # Header principale
-    st.title("🚗 Auto Arbitrage")
-    st.write("Sistema di monitoraggio e analisi delle aste auto")
-    
-    if not st.session_state.firebase_initialized:
-        st.warning("⚠️ Firebase non inizializzato. Alcune funzionalità potrebbero non essere disponibili.")
-    
-    # Menu principale nella sidebar
-    with st.sidebar:
-        st.title("Menu")
-        
-        # Sezione utente
-        if st.session_state.firebase_initialized:
-            st.write("👤 Utente connesso")
-            # TODO: Aggiungere gestione utente
-        
-        # Menu principale
-        menu = st.radio(
-            "Seleziona sezione:",
-            ["Dashboard", "Ricerca", "Analisi", "Watchlist"]
-        )
-        
-        # Info aggiuntive
-        st.divider()
-        st.caption("Ultimo aggiornamento dati:")
-        st.caption(datetime.now().strftime("%d/%m/%Y %H:%M"))
-    
-    # Contenuto principale in base alla selezione
-    if menu == "Dashboard":
-        show_dashboard()
-    elif menu == "Ricerca":
-        show_search()
-    elif menu == "Analisi":
-        show_analysis()
-    elif menu == "Watchlist":
-        show_watchlist()
 
 def show_dashboard():
     st.header("📊 Dashboard")
@@ -106,13 +69,11 @@ def show_dashboard():
     
     with col1:
         st.subheader("📈 Trend Opportunità")
-        # TODO: Aggiungere grafico trend
         st.info("Grafico in sviluppo")
         
     with col2:
         st.subheader("🎯 Top Opportunità")
-        if firebase_initialized:
-            # TODO: Implementare recupero top opportunità
+        if st.session_state.firebase_initialized:
             st.dataframe(
                 pd.DataFrame({
                     'Veicolo': ['Audi A3', 'BMW X1', 'Mercedes C220'],
@@ -153,19 +114,54 @@ def show_analysis():
 def show_watchlist():
     st.header("👀 Watchlist")
     
-    if firebase_initialized:
-        # TODO: Implementare recupero watchlist
+    if st.session_state.firebase_initialized:
         st.info("Watchlist in sviluppo")
         
         col1, col2 = st.columns(2)
         with col1:
             st.subheader("🚗 Veicoli Monitorati")
-            # TODO: Mostrare veicoli in watchlist
         with col2:
             st.subheader("🔔 Alert Attivi")
-            # TODO: Mostrare alert configurati
     else:
         st.warning("Watchlist non disponibile - Firebase non inizializzato")
+
+def main():
+    # Header principale
+    st.title("🚗 Auto Arbitrage")
+    st.write("Sistema di monitoraggio e analisi delle aste auto")
+    
+    if not st.session_state.firebase_initialized:
+        st.warning("⚠️ Firebase non inizializzato. Alcune funzionalità potrebbero non essere disponibili.")
+    
+    # Menu principale nella sidebar
+    with st.sidebar:
+        st.title("Menu")
+        
+        # Sezione utente
+        if st.session_state.firebase_initialized:
+            st.write("👤 Utente connesso")
+            # TODO: Aggiungere gestione utente
+        
+        # Menu principale
+        menu = st.radio(
+            "Seleziona sezione:",
+            ["Dashboard", "Ricerca", "Analisi", "Watchlist"]
+        )
+        
+        # Info aggiuntive
+        st.divider()
+        st.caption("Ultimo aggiornamento dati:")
+        st.caption(datetime.now().strftime("%d/%m/%Y %H:%M"))
+    
+    # Contenuto principale in base alla selezione
+    if menu == "Dashboard":
+        show_dashboard()
+    elif menu == "Ricerca":
+        show_search()
+    elif menu == "Analisi":
+        show_analysis()
+    elif menu == "Watchlist":
+        show_watchlist()
 
 # Gestione errori globale
 def handle_error(func):
