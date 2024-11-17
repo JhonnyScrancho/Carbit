@@ -1,17 +1,3 @@
 chromium
 chromium-driver
 xvfb
-build-essential
-python3-dev
-libjpeg-dev
-zlib1g-dev
-wkhtmltopdf
-ghostscript
-libmagic1
-p7zip-full
-unrar
-zip
-unzip
-curl
-wget
-git
