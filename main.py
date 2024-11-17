@@ -1,6 +1,4 @@
-# main.py
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 from utils.firebase_config import FirebaseConfig
 from utils.firebase_manager import FirebaseManager
@@ -20,12 +18,14 @@ st.set_page_config(
 
 # Inizializzazione Firebase e stato globale
 firebase_initialized = FirebaseConfig.initialize_firebase()
-if firebase_initialized:
-    firebase_mgr = FirebaseManager(st.session_state.db)
+firebase_mgr = None  # Inizializzazione a None
+
+if firebase_initialized and 'firebase_mgr' not in st.session_state:
+    st.session_state.firebase_mgr = FirebaseManager()  # Non passa più il db come parametro
 
 def main():
     # Header principale
-    st.title("🚗 Carbit")
+    st.title("🚗 Auto Arbitrage")
     st.write("Sistema di monitoraggio e analisi delle aste auto")
     
     if not firebase_initialized:

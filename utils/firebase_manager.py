@@ -8,6 +8,7 @@ class FirebaseManager:
     """Gestore delle operazioni su Firebase"""
     
     def __init__(self):
+        """Initialize Firebase Manager"""
         self.db = firestore.client()
         
     def save_vehicle(self, vehicle_data: Dict) -> bool:
