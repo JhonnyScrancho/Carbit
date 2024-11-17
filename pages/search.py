@@ -1,172 +1,169 @@
+# pages/search.py
 import streamlit as st
 from scrapers.portals.clickar import ClickarScraper
 from scrapers.portals.ayvens import AyvensScraper
 import pandas as pd
 from datetime import datetime
+import sys
+import traceback
+
+def debug_scraper(portal_name, username, password, log_container):
+    """Funzione di debug per testare singoli step dello scraping"""
+    try:
+        with log_container:
+            st.write(f"🔍 DEBUG {portal_name}")
+            st.write("1️⃣ Inizializzazione scraper...")
+            scraper = ClickarScraper() if portal_name == "Clickar" else AyvensScraper()
+            st.success("✅ Scraper inizializzato")
+            
+            st.write("2️⃣ Setup driver...")
+            scraper.setup_driver()
+            st.success("✅ Driver inizializzato")
+            
+            st.write("3️⃣ Tentativo login...")
+            login_success = scraper.login(username, password)
+            if not login_success:
+                st.error("❌ Login fallito")
+                return None
+            st.success("✅ Login riuscito")
+            
+            st.write("4️⃣ Recupero veicoli...")
+            vehicles = []
+            if portal_name == "Clickar":
+                if not scraper.navigate_to_introvabili():
+                    st.error("❌ Navigazione a introvabili fallita")
+                    return None
+                st.success("✅ Navigazione a introvabili riuscita")
+                vehicles = scraper.get_all_vehicles()
+            else:
+                auctions = scraper.get_auctions()
+                if auctions:
+                    st.success(f"✅ Trovate {len(auctions)} aste")
+                    for auction in auctions:
+                        auction_vehicles = scraper.get_vehicles(auction['id'])
+                        if auction_vehicles:
+                            vehicles.extend(auction_vehicles)
+                else:
+                    st.error("❌ Nessuna asta trovata")
+                    return None
+            
+            return vehicles
+
+    except Exception as e:
+        with log_container:
+            st.error("❌ ERRORE CRITICO")
+            st.error(f"Tipo errore: {type(e).__name__}")
+            st.error(f"Messaggio: {str(e)}")
+            st.error("Traceback completo:")
+            st.code(traceback.format_exc())
+        return None
+    finally:
+        try:
+            scraper.cleanup()
+            with log_container:
+                st.write("🧹 Cleanup eseguito")
+        except:
+            with log_container:
+                st.warning("⚠️ Errore durante il cleanup")
 
 def main():
     st.title("🚗 Ricerca Aste Auto")
     
-    # Crea due colonne principali
-    main_col, log_col = st.columns([3, 1])
+    # Setup delle colonne principali
+    main_col, debug_col = st.columns([3, 1])
     
-    with log_col:
-        st.header("📋 Log")
+    # Colonna di debug/log
+    with debug_col:
+        st.header("📋 Debug Log")
         log_container = st.empty()
-        # Inizializza log se non esiste
-        if 'log_messages' not in st.session_state:
-            st.session_state.log_messages = []
-            
-        # Funzione per aggiungere log
-        def add_log(message, type="info"):
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            icon = "ℹ️" if type == "info" else "✅" if type == "success" else "❌" if type == "error" else "⚠️"
-            st.session_state.log_messages.append(f"{icon} {timestamp} - {message}")
-            # Aggiorna visualizzazione log
-            with log_container:
-                for msg in st.session_state.log_messages:
-                    st.text(msg)
+        if 'debug_messages' not in st.session_state:
+            st.session_state.debug_messages = []
     
+    # Colonna principale
     with main_col:
-        # Controlli
-        st.header("🔍 Controlli Ricerca")
-        col1, col2 = st.columns(2)
+        # Area Controlli
+        st.header("🎮 Controlli")
+        control_col1, control_col2 = st.columns(2)
         
-        with col1:
-            clickar_enabled = st.checkbox("👥 Clickar", value=True)
-            headless = st.checkbox("🔒 Modalità Headless", value=False, 
-                                help="Se disattivato, vedrai il browser durante lo scraping")
-            
-        with col2:
-            ayvens_enabled = st.checkbox("🚗 Ayvens", value=True)
-            debug_mode = st.checkbox("🐛 Debug Mode", value=True,
-                                  help="Mostra informazioni aggiuntive durante lo scraping")
+        with control_col1:
+            clickar_enabled = st.checkbox("Clickar", value=True)
+            debug_mode = st.checkbox("Modalità Debug", value=True, 
+                                   help="Mostra informazioni dettagliate durante l'esecuzione")
         
-        # Bottone di ricerca
+        with control_col2:
+            ayvens_enabled = st.checkbox("Ayvens", value=True)
+            headless = st.checkbox("Headless Mode", value=False,
+                                 help="Esegui senza mostrare il browser")
+        
+        # Bottone di avvio
         if st.button("🚀 Avvia Ricerca", type="primary", use_container_width=True):
             if not st.session_state.get('firebase_mgr'):
-                st.error("🔥 Firebase non inizializzato correttamente")
-                add_log("Firebase non inizializzato", "error")
+                st.error("Firebase non inizializzato")
                 return
             
-            add_log("Avvio della ricerca...")
-            if not headless:
-                st.warning("⚠️ Si aprirà una finestra del browser. Non chiuderla durante lo scraping!")
+            all_vehicles = []
             
-            with st.spinner("⏳ Recupero aste in corso..."):
-                all_vehicles = []
-                
-                # Clickar scraping
+            # Test di connessione e debug
+            if debug_mode:
+                st.info("🔧 Modalità debug attiva")
                 if clickar_enabled:
-                    try:
-                        add_log("Avvio scraping Clickar...")
-                        scraper = ClickarScraper()
-                        if debug_mode:
-                            st.info("🔄 Connessione a Clickar...")
-                        
-                        credentials = st.secrets.credentials.clickar
-                        vehicles = scraper.scrape(
-                            credentials.username,
-                            credentials.password
-                        )
-                        
-                        if vehicles:
-                            for v in vehicles:
-                                v['fonte'] = 'Clickar'
-                            all_vehicles.extend(vehicles)
-                            add_log(f"Clickar: trovati {len(vehicles)} veicoli", "success")
-                            if debug_mode:
-                                st.success(f"✅ Clickar: {len(vehicles)} veicoli trovati")
-                        else:
-                            add_log("Clickar: nessun veicolo trovato", "error")
-                            if debug_mode:
-                                st.error("❌ Clickar: Nessun veicolo trovato")
-                    except Exception as e:
-                        error_msg = str(e)
-                        add_log(f"Errore Clickar: {error_msg}", "error")
-                        if debug_mode:
-                            st.error(f"❌ Clickar: {error_msg}")
+                    vehicles = debug_scraper("Clickar", 
+                                          st.secrets.credentials.clickar.username,
+                                          st.secrets.credentials.clickar.password,
+                                          log_container)
+                    if vehicles:
+                        for v in vehicles:
+                            v['fonte'] = 'Clickar'
+                        all_vehicles.extend(vehicles)
                 
-                # Ayvens scraping
                 if ayvens_enabled:
-                    try:
-                        add_log("Avvio scraping Ayvens...")
-                        scraper = AyvensScraper()
-                        if debug_mode:
-                            st.info("🔄 Connessione a Ayvens...")
-                            
-                        credentials = st.secrets.credentials.ayvens
-                        vehicles = scraper.scrape(
-                            credentials.username,
-                            credentials.password
-                        )
-                        
-                        if vehicles:
-                            for v in vehicles:
-                                v['fonte'] = 'Ayvens'
-                            all_vehicles.extend(vehicles)
-                            
-                            # Salva su Firebase
-                            results = st.session_state.firebase_mgr.save_auction_batch(vehicles)
-                            add_log(f"Ayvens: salvati {results['success']} veicoli su Firebase", "success")
-                            if debug_mode:
-                                st.success(f"✅ Ayvens: {len(vehicles)} veicoli trovati")
-                        else:
-                            add_log("Ayvens: nessun veicolo trovato", "error")
-                            if debug_mode:
-                                st.error("❌ Ayvens: Nessun veicolo trovato")
-                    except Exception as e:
-                        error_msg = str(e)
-                        add_log(f"Errore Ayvens: {error_msg}", "error")
-                        if debug_mode:
-                            st.error(f"❌ Ayvens: {error_msg}")
-                
-                # Gestione risultati
-                if all_vehicles:
-                    df = pd.DataFrame(all_vehicles)
-                    st.session_state['vehicles_data'] = df
-                    add_log(f"Totale veicoli trovati: {len(df)}", "success")
-                    if debug_mode:
-                        st.success(f"✅ Totale veicoli trovati: {len(df)}")
-                else:
-                    add_log("Nessun veicolo trovato", "error")
-                    if debug_mode:
-                        st.error("❌ Nessun veicolo trovato")
+                    vehicles = debug_scraper("Ayvens",
+                                          st.secrets.credentials.ayvens.username,
+                                          st.secrets.credentials.ayvens.password,
+                                          log_container)
+                    if vehicles:
+                        for v in vehicles:
+                            v['fonte'] = 'Ayvens'
+                        all_vehicles.extend(vehicles)
+            
+            # Se abbiamo trovato veicoli, mostriamoli
+            if all_vehicles:
+                st.session_state['vehicles_data'] = pd.DataFrame(all_vehicles)
+                st.success(f"✅ Trovati {len(all_vehicles)} veicoli")
+            else:
+                st.error("❌ Nessun veicolo trovato")
         
-        # Visualizzazione risultati
+        # Area Risultati
         if 'vehicles_data' in st.session_state:
             st.header("📊 Risultati")
             df = st.session_state['vehicles_data']
             
             # Filtri
             with st.expander("🔍 Filtri", expanded=True):
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    brand_filter = st.multiselect(
-                        "Marca",
-                        options=sorted(df['brand_model'].str.split().str[0].unique())
-                    )
-                with col2:
-                    location_filter = st.multiselect(
-                        "Ubicazione",
-                        options=sorted(df['location'].unique()) if 'location' in df.columns else []
-                    )
-                with col3:
-                    status_filter = st.multiselect(
-                        "Stato",
-                        options=sorted(df['status'].unique()) if 'status' in df.columns else []
-                    )
+                filter_col1, filter_col2, filter_col3 = st.columns(3)
+                
+                with filter_col1:
+                    brands = sorted(df['brand_model'].str.split().str[0].unique()) if 'brand_model' in df.columns else []
+                    brand_filter = st.multiselect("Marca", options=brands)
+                
+                with filter_col2:
+                    locations = sorted(df['location'].unique()) if 'location' in df.columns else []
+                    location_filter = st.multiselect("Ubicazione", options=locations)
+                
+                with filter_col3:
+                    statuses = sorted(df['status'].unique()) if 'status' in df.columns else []
+                    status_filter = st.multiselect("Stato", options=statuses)
             
             # Applica filtri
             filtered_df = df.copy()
             if brand_filter:
                 filtered_df = filtered_df[filtered_df['brand_model'].str.split().str[0].isin(brand_filter)]
-            if location_filter and 'location' in df.columns:
+            if location_filter:
                 filtered_df = filtered_df[filtered_df['location'].isin(location_filter)]
-            if status_filter and 'status' in df.columns:
+            if status_filter:
                 filtered_df = filtered_df[filtered_df['status'].isin(status_filter)]
             
-            # Visualizzazione risultati
+            # Mostra risultati
             st.dataframe(
                 filtered_df,
                 column_config={
@@ -176,10 +173,7 @@ def main():
                     "vin": "Telaio",
                     "year": "Anno",
                     "location": "Ubicazione",
-                    "base_price": st.column_config.NumberColumn(
-                        "Prezzo Base",
-                        format="€%.2f"
-                    ),
+                    "base_price": st.column_config.NumberColumn("Prezzo Base", format="€%.2f"),
                     "km": "Kilometraggio",
                     "damages": "Danni",
                     "status": "Stato",
@@ -188,20 +182,17 @@ def main():
                 hide_index=True
             )
             
-            # Download CSV
-            col1, col2 = st.columns([3, 1])
-            with col2:
-                if st.download_button(
-                    label="📥 Scarica CSV",
-                    data=filtered_df.to_csv(index=False).encode('utf-8'),
-                    file_name=f'auto_arbitrage_export_{datetime.now().strftime("%Y%m%d_%H%M")}.csv',
-                    mime='text/csv',
-                    use_container_width=True
-                ):
-                    st.success("✅ Download completato!")
-                    add_log("CSV scaricato", "success")
-        else:
-            st.info("👆 Utilizza i controlli sopra per avviare una ricerca")
+            # Download
+            if st.button("📥 Scarica CSV", use_container_width=True):
+                csv = filtered_df.to_csv(index=False).encode('utf-8')
+                filename = f'auto_export_{datetime.now().strftime("%Y%m%d_%H%M")}.csv'
+                st.download_button(
+                    "Conferma Download",
+                    csv,
+                    filename,
+                    "text/csv",
+                    key='download-csv'
+                )
 
 if __name__ == "__main__":
     main()
