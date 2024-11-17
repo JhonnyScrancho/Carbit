@@ -5,12 +5,39 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from scrapers.base import BaseScraper
 import time
 import streamlit as st
+import base64
+from io import BytesIO
 
 class ClickarScraper(BaseScraper):
     def __init__(self, headless: bool = True):
         super().__init__(headless=headless)
         self.base_url = "https://www.clickar.biz/private"
         self.is_logged_in = False
+
+    def save_screenshot_st(self, name: str):
+        """Salva e mostra screenshot in Streamlit"""
+        try:
+            # Cattura screenshot
+            img_binary = self.driver.get_screenshot_as_png()
+            
+            # Converti in base64 per mostrarlo
+            img_b64 = base64.b64encode(img_binary).decode()
+            
+            # Mostra in Streamlit
+            st.write(f"📸 Screenshot - {name}:")
+            st.image(img_binary, caption=name)
+            
+            # Aggiungi bottone download
+            st.download_button(
+                label=f"📥 Scarica Screenshot {name}",
+                data=img_binary,
+                file_name=f"screenshot_{name}_{int(time.time())}.png",
+                mime="image/png"
+            )
+            return True
+        except Exception as e:
+            st.error(f"❌ Errore salvataggio screenshot {name}: {str(e)}")
+            return False
 
     def login(self, username: str, password: str) -> bool:
         """Gestisce il login su Clickar con debug esteso"""
@@ -23,9 +50,9 @@ class ClickarScraper(BaseScraper):
             self.driver.get(self.base_url)
             time.sleep(5)  # Attesa caricamento iniziale
             
-            # Salva screenshot per debug
-            self.driver.save_screenshot("pre_login.png")
-            st.write("Screenshot pre-login salvato")
+            # Screenshot pre-login
+            st.write("📸 Cattura stato iniziale...")
+            self.save_screenshot_st("pre_login")
             
             st.write("🔄 Gestione iframe...")
             # Trova l'iframe corretto
@@ -47,46 +74,67 @@ class ClickarScraper(BaseScraper):
             
             if not login_frame:
                 st.error("❌ Frame login non trovato")
+                self.save_screenshot_st("no_frame_error")
                 return False
             
             st.write("🔄 Switch al frame login...")
             self.driver.switch_to.frame(login_frame)
+            self.save_screenshot_st("inside_frame")
             
             # Attendi e compila username
             st.write("📝 Compilazione username...")
-            username_field = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.ID, "userNameInput"))
-            )
-            username_field.clear()
-            username_field.send_keys(username)
-            time.sleep(1)
+            try:
+                username_field = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.ID, "userNameInput"))
+                )
+                username_field.clear()
+                username_field.send_keys(username)
+                time.sleep(1)
+            except:
+                st.error("❌ Campo username non trovato")
+                self.save_screenshot_st("username_error")
+                return False
             
             # Compila password
             st.write("📝 Compilazione password...")
-            password_field = self.driver.find_element(By.ID, "passwordInput")
-            password_field.clear()
-            password_field.send_keys(password)
-            time.sleep(1)
+            try:
+                password_field = self.driver.find_element(By.ID, "passwordInput")
+                password_field.clear()
+                password_field.send_keys(password)
+                time.sleep(1)
+            except:
+                st.error("❌ Campo password non trovato")
+                self.save_screenshot_st("password_error")
+                return False
+            
+            # Screenshot pre-submit
+            self.save_screenshot_st("pre_submit")
             
             # Click login con retry
             st.write("🔐 Click sul bottone login...")
-            for _ in range(3):  # 3 tentativi
+            submit_success = False
+            for attempt in range(3):
                 try:
                     submit_button = self.driver.find_element(By.ID, "submitButton")
                     submit_button.click()
+                    submit_success = True
                     break
                 except:
+                    st.warning(f"⚠️ Tentativo {attempt + 1} fallito, riprovo...")
                     time.sleep(1)
-                    continue
+            
+            if not submit_success:
+                st.error("❌ Impossibile cliccare il bottone submit")
+                self.save_screenshot_st("submit_error")
+                return False
             
             # Torna al contesto principale
             st.write("🔄 Ritorno al contesto principale...")
             self.driver.switch_to.default_content()
             time.sleep(5)  # Attesa post-login
             
-            # Salva screenshot post-login
-            self.driver.save_screenshot("post_login.png")
-            st.write("Screenshot post-login salvato")
+            # Screenshot post-login
+            self.save_screenshot_st("post_login")
             
             # Verifica login con multipli selettori
             st.write("✅ Verifica login...")
@@ -110,18 +158,13 @@ class ClickarScraper(BaseScraper):
                     continue
             
             st.error("❌ Login fallito - Nessun elemento di verifica trovato")
+            self.save_screenshot_st("verification_failed")
             return False
             
         except Exception as e:
             st.error(f"❌ Errore durante il login: {str(e)}")
-            # Salva screenshot in caso di errore
-            try:
-                self.driver.save_screenshot("login_error.png")
-                st.write("Screenshot errore salvato")
-            except:
-                st.write("⚠️ Impossibile salvare screenshot errore")
+            self.save_screenshot_st("error")
             return False
-
     def navigate_to_introvabili(self) -> bool:
         """
         Naviga alla sezione INTROVABILI
