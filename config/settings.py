@@ -1,9 +1,14 @@
-# config/settings.py
+import streamlit as st
 
 # URL portali
 PORTAL_URLS = {
     'clickar': 'https://www.clickar.biz/private',
     'ayvens': 'https://carmarket.ayvens.com'
+}
+
+PORTAL_CREDENTIALS = {
+    'clickar': st.secrets.credentials.clickar,
+    'ayvens': st.secrets.credentials.ayvens
 }
 
 # Configurazioni cache
