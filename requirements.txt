@@ -1,0 +1,28 @@
+# requirements.txt
+
+# Web App
+streamlit>=1.24.0
+
+# Scraping
+selenium>=4.10.0
+webdriver_manager>=3.8.6
+
+# Database
+firebase-admin>=6.2.0
+
+# Data Processing
+pandas>=2.0.3
+numpy>=1.24.3
+
+# PDF Processing
+PyPDF2>=3.0.1
+
+# Utilities
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Date/Time handling
+pytz>=2023.3
+
+# Web driver
+chromedriver-autoinstaller>=0.4.0
