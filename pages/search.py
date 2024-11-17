@@ -8,8 +8,10 @@ from datetime import datetime
 def main():
     st.title("🚗 Ricerca Aste Auto")
     
-    # Verifica che firebase_mgr sia disponibile
-    firebase_mgr = st.session_state.get('firebase_mgr')
+    # Area per i log
+    log_container = st.sidebar.expander("Log", expanded=True)
+    with log_container:
+        st.text("Log delle operazioni:")
     
     # Sidebar per i controlli
     with st.sidebar:
@@ -17,15 +19,19 @@ def main():
         clickar_enabled = st.checkbox("Clickar", value=True)
         ayvens_enabled = st.checkbox("Ayvens", value=True)
         
+        # Opzioni debug
+        st.subheader("Opzioni Debug")
+        headless = st.checkbox("Modalità Headless", value=False)
+        
         if st.button("Avvia Ricerca", type="primary"):
-            if not firebase_mgr:
+            if not st.session_state.get('firebase_mgr'):
                 st.error("Firebase non inizializzato correttamente")
                 return
                 
             with st.spinner("Recupero aste in corso..."):
                 all_vehicles = []
                 
-                # Scraping Clickar
+                # Clickar scraping
                 if clickar_enabled:
                     with st.spinner("Scraping Clickar..."):
                         try:
@@ -39,12 +45,9 @@ def main():
                                 for v in vehicles:
                                     v['fonte'] = 'Clickar'
                                 all_vehicles.extend(vehicles)
-                                
-                                results = firebase_mgr.save_auction_batch(vehicles)
-                                st.sidebar.info(f"Salvati {results['success']} veicoli su Firebase")
                                 st.sidebar.success(f"✅ Clickar: {len(vehicles)} veicoli trovati")
                             else:
-                                st.sidebar.error("❌ Clickar: Errore nel recupero dei dati")
+                                st.sidebar.error("❌ Clickar: Nessun veicolo trovato")
                         except Exception as e:
                             st.sidebar.error(f"❌ Clickar: {str(e)}")
                 

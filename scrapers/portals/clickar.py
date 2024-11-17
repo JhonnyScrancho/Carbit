@@ -1,132 +1,87 @@
-# scrapers/portals/clickar.py
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from scrapers.base import BaseScraper
 import time
+import streamlit as st
 
 class ClickarScraper(BaseScraper):
     def __init__(self):
-        super().__init__()
+        super().__init__(headless=False)  # Disabilitato headless per debug
         self.base_url = "https://www.clickar.biz/private"
         self.login_url = "https://sts.fiatgroup.com"
-        self.setup_driver()  # Inizializza subito il driver
+        self.setup_driver()
     
     def login(self, username, password):
         """Handle the login flow for Clickar"""
         try:
+            self.log("Navigazione alla pagina di login...")
             self.driver.get(self.base_url)
-            time.sleep(5)  # Attendi il redirect
+            time.sleep(5)
             
-            # Attendi e compila le credenziali
-            username_field = WebDriverWait(self.driver, 20).until(
+            self.log("Attesa campo username...")
+            username_field = self.wait.until(
                 EC.presence_of_element_located((By.ID, "userNameInput"))
             )
+            
+            self.log("Compilazione credenziali...")
             password_field = self.driver.find_element(By.ID, "passwordInput")
             submit_button = self.driver.find_element(By.ID, "submitButton")
             
             username_field.send_keys(username)
             password_field.send_keys(password)
+            
+            self.log("Click sul bottone login...")
             submit_button.click()
             
-            # Attendi il redirect dopo il login
+            self.log("Attesa completamento login...")
             WebDriverWait(self.driver, 20).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "carusedred"))
             )
+            
+            self.log("Login completato con successo")
             return True
             
         except Exception as e:
-            print(f"Login failed: {str(e)}")
+            self.log(f"Login fallito: {str(e)}", "error")
+            # Salva screenshot per debug
+            try:
+                screenshot_path = "login_error.png"
+                self.driver.save_screenshot(screenshot_path)
+                self.log(f"Screenshot salvato in {screenshot_path}")
+            except:
+                self.log("Impossibile salvare screenshot", "error")
             return False
             
     def navigate_to_introvabili(self):
-        """Navigate to 'LE INTROVABILI' section"""
         try:
-            time.sleep(5)  # Attendi caricamento pagina
-            # Cerca il link INTROVABILI
-            introvabili_links = self.driver.find_elements(By.XPATH, "//a[contains(text(), 'INTROVABILI')]")
-            if introvabili_links:
-                introvabili_links[0].click()
-                time.sleep(5)  # Attendi caricamento sezione
-                return True
-                
-            # Alternativa: cerca per h4
-            introvabili = WebDriverWait(self.driver, 20).until(
-                EC.element_to_be_clickable((By.XPATH, "//h4[contains(text(), 'LE INTROVABILI')]"))
-            )
-            introvabili.click()
+            self.log("Attesa caricamento pagina principale...")
             time.sleep(5)
-            return True
             
+            self.log("Ricerca sezione INTROVABILI...")
+            try:
+                introvabili = self.wait.until(
+                    EC.element_to_be_clickable((By.XPATH, "//h4[contains(text(), 'LE INTROVABILI')]"))
+                )
+                self.log("Sezione INTROVABILI trovata (h4)")
+                introvabili.click()
+                return True
+            except TimeoutException:
+                self.log("Tentativo alternativo di ricerca INTROVABILI...", "warning")
+                introvabili_links = self.driver.find_elements(By.XPATH, "//a[contains(text(), 'INTROVABILI')]")
+                if introvabili_links:
+                    self.log("Sezione INTROVABILI trovata (link)")
+                    introvabili_links[0].click()
+                    time.sleep(5)
+                    return True
+                else:
+                    self.log("Sezione INTROVABILI non trovata", "error")
+                    return False
+                    
         except Exception as e:
-            print(f"Navigation to INTROVABILI failed: {str(e)}")
+            self.log(f"Errore navigazione INTROVABILI: {str(e)}", "error")
             return False
-            
-    def extract_vehicle_data(self, row):
-        """Extract data from a vehicle row"""
-        try:
-            data = {}
-            # Usa try/except per ogni campo per evitare errori se manca qualcosa
-            try:
-                data['brand_model'] = row.find_element(By.XPATH, ".//td[4]").text.strip()
-            except: data['brand_model'] = ''
-            
-            try:
-                data['plate'] = row.find_element(By.XPATH, ".//td[5]").text.strip()
-            except: data['plate'] = ''
-            
-            try:
-                data['vin'] = row.find_element(By.XPATH, ".//td[6]").text.strip()
-            except: data['vin'] = ''
-            
-            try:
-                data['year'] = row.find_element(By.XPATH, ".//td[7]").text.strip()
-            except: data['year'] = ''
-            
-            try:
-                data['lot'] = row.find_element(By.XPATH, ".//td[8]").text.strip()
-            except: data['lot'] = ''
-            
-            try:
-                data['location'] = row.find_element(By.XPATH, ".//td[9]").text.strip()
-            except: data['location'] = ''
-            
-            try:
-                price_text = row.find_element(By.XPATH, ".//td[10]").text.strip()
-                # Converte il prezzo in numero
-                data['base_price'] = float(price_text.replace('€', '').replace('.', '').replace(',', '.').strip())
-            except:
-                data['base_price'] = 0
-            
-            try:
-                data['auction_type'] = row.find_element(By.XPATH, ".//td[11]").text.strip()
-            except: data['auction_type'] = ''
-            
-            try:
-                data['km'] = row.find_element(By.XPATH, ".//td[12]").text.strip()
-            except: data['km'] = ''
-            
-            try:
-                data['damages'] = row.find_element(By.XPATH, ".//td[13]").text.strip()
-            except: data['damages'] = ''
-            
-            try:
-                data['status'] = row.find_element(By.XPATH, ".//td[14]").text.strip()
-            except: data['status'] = ''
-            
-            # Get image URL
-            try:
-                img_element = row.find_element(By.XPATH, ".//img[contains(@src, 'ticonet')]")
-                data['image_url'] = img_element.get_attribute('src')
-            except:
-                data['image_url'] = None
-                
-            return data
-            
-        except Exception as e:
-            print(f"Error extracting vehicle data: {str(e)}")
-            return None
-            
+
     def get_all_vehicles(self):
         """Get all vehicles from all pages"""
         all_vehicles = []
@@ -134,35 +89,46 @@ class ClickarScraper(BaseScraper):
         
         while True:
             try:
+                self.log(f"Elaborazione pagina {page}...")
+                
                 # Attendi caricamento tabella
+                self.log("Attesa caricamento tabella veicoli...")
                 WebDriverWait(self.driver, 20).until(
                     EC.presence_of_element_located((By.CLASS_NAME, "rich-table-row"))
                 )
-                time.sleep(3)  # Attendi caricamento completo
+                time.sleep(3)
                 
-                # Trova tutte le righe della tabella
+                # Trova tutte le righe
                 rows = self.driver.find_elements(By.CLASS_NAME, "rich-table-row")
-                print(f"Found {len(rows)} rows on page {page}")
+                self.log(f"Trovate {len(rows)} righe nella pagina {page}")
                 
-                for row in rows:
+                for idx, row in enumerate(rows, 1):
+                    self.log(f"Elaborazione veicolo {idx}/{len(rows)} della pagina {page}")
                     vehicle_data = self.extract_vehicle_data(row)
-                    if vehicle_data and vehicle_data.get('plate'):  # Verifica dati minimi
+                    if vehicle_data and vehicle_data.get('plate'):
                         all_vehicles.append(vehicle_data)
                 
-                # Cerca paginazione
-                next_page = self.driver.find_elements(By.XPATH, f"//a[contains(@class, 'page-item') and text()='{page + 1}']")
+                self.log(f"Veicoli totali trovati finora: {len(all_vehicles)}")
+                
+                # Gestione paginazione
+                next_page = self.driver.find_elements(
+                    By.XPATH, 
+                    f"//a[contains(@class, 'page-item') and text()='{page + 1}']"
+                )
+                
                 if not next_page:
+                    self.log("Nessuna pagina successiva trovata")
                     break
                     
+                self.log(f"Passaggio alla pagina {page + 1}")
                 next_page[0].click()
                 page += 1
-                time.sleep(5)  # Attendi caricamento pagina
+                time.sleep(5)
                 
             except Exception as e:
-                print(f"Error processing page {page}: {str(e)}")
+                self.log(f"Errore nella pagina {page}: {str(e)}", "error")
                 break
                 
-        print(f"Total vehicles found: {len(all_vehicles)}")
         return all_vehicles
         
     def scrape(self, username, password):
