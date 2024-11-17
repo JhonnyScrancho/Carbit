@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By  # Aggiunta questa importazione
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
@@ -12,6 +12,8 @@ import platform
 import os
 import subprocess
 import time
+import wget
+import shutil
 
 class BaseScraper(ABC):
     def __init__(self):
@@ -20,24 +22,45 @@ class BaseScraper(ABC):
         self.wait = None
         self.debug = True
 
+    def install_chrome(self):
+        """Installa Chrome automaticamente in ambiente Linux"""
+        try:
+            st.write("🔄 Installazione automatica Chrome...")
+            
+            # Installa dipendenze
+            os.system('apt-get update')
+            os.system('apt-get install -y wget unzip libnss3 libgconf-2-4')
+            
+            # Scarica e installa Chrome
+            chrome_deb = wget.download(
+                "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb",
+                "chrome.deb"
+            )
+            
+            os.system('dpkg -i chrome.deb || apt-get install -f -y')
+            os.system('apt-get install -f -y')  # Fix dipendenze
+            
+            # Pulisci file temporanei
+            if os.path.exists("chrome.deb"):
+                os.remove("chrome.deb")
+                
+            st.success("✅ Chrome installato correttamente")
+            return True
+        except Exception as e:
+            st.error(f"❌ Errore installazione Chrome: {str(e)}")
+            return False
+
     def check_chrome_installation(self):
         """Verifica e installa Chrome se necessario"""
         try:
-            # Verifica se Chrome è installato
             subprocess.run(['google-chrome', '--version'], 
                          capture_output=True, 
                          check=True)
             st.write("✅ Google Chrome trovato")
             return True
         except:
-            st.error("❌ Google Chrome non trovato")
-            st.info("Installazione Chrome necessaria. Esegui questi comandi:")
-            st.code("""
-            wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-            sudo dpkg -i google-chrome-stable_current_amd64.deb
-            sudo apt-get install -f
-            """)
-            return False
+            st.warning("⚠️ Chrome non trovato, tentativo di installazione automatica...")
+            return self.install_chrome()
 
     def setup_driver(self) -> bool:
         """Setup dettagliato del webdriver con gestione errori"""
@@ -48,7 +71,7 @@ class BaseScraper(ABC):
             st.write(f"Sistema Operativo: {platform.system()} {platform.release()}")
             st.write(f"Python Version: {platform.python_version()}")
             
-            # Verifica Chrome
+            # Verifica/Installa Chrome
             if not self.check_chrome_installation():
                 return False
             
@@ -57,29 +80,24 @@ class BaseScraper(ABC):
             chromedriver_path = chromedriver_autoinstaller.install()
             st.write(f"Chromedriver path: {chromedriver_path}")
             
-            # Opzioni Chrome
+            # Opzioni Chrome per ambiente cloud/container
             chrome_options = Options()
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--window-size=1920,1080")
-            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--headless=new')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-software-rasterizer')
+            chrome_options.add_argument('--window-size=1920,1080')
             
-            # Opzioni Linux specifiche
-            if platform.system() == "Linux":
-                chrome_options.add_argument("--disable-gpu")
-                chrome_options.add_argument("--disable-software-rasterizer")
-                chrome_options.binary_location = "/usr/bin/google-chrome"
-            
-            # Verifica ambiente
-            if os.getenv('STREAMLIT_SERVER_PORT'):
-                st.write("⚠️ Ambiente Streamlit Cloud rilevato")
-                chrome_options.add_argument("--headless=new")
-            else:
-                st.write("💻 Ambiente locale rilevato")
-                
             # Opzioni aggiuntive per stabilità
-            chrome_options.add_argument("--disable-notifications")
-            chrome_options.add_argument("--disable-infobars")
-            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument('--disable-notifications')
+            chrome_options.add_argument('--disable-infobars')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--remote-debugging-port=9222')
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            
+            # Test dell'user agent
+            chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
             
             # Inizializza driver
             st.write("Inizializzazione Chrome...")
@@ -90,6 +108,9 @@ class BaseScraper(ABC):
             # Verifica inizializzazione
             if self.driver:
                 st.write("✅ Driver inizializzato correttamente")
+                # Test di navigazione base
+                self.driver.get("https://www.google.com")
+                st.write("✅ Test di navigazione base completato")
                 return True
             else:
                 st.error("❌ Driver non inizializzato")

@@ -5,6 +5,7 @@ from utils.firebase_config import FirebaseConfig
 from utils.firebase_manager import FirebaseManager
 import time
 import traceback
+import subprocess
 
 # Configurazione della pagina principale
 st.set_page_config(
@@ -25,6 +26,17 @@ if 'firebase_initialized' not in st.session_state:
 
 if st.session_state.get('firebase_initialized') and 'firebase_mgr' not in st.session_state:
     st.session_state.firebase_mgr = FirebaseManager()
+
+def setup_permissions():
+    try:
+        if os.geteuid() == 0:  # Se siamo root
+            os.system('chmod -R 777 /usr/bin/google-chrome')
+            os.system('chmod -R 777 /usr/lib/chrome')
+            os.system('chmod -R 777 /var/log')
+            return True
+    except:
+        pass
+    return False
 
 def show_debug_info():
     """Mostra informazioni di debug nella sidebar"""
@@ -425,6 +437,7 @@ def init_session_state():
         st.session_state.last_update = None
 
 if __name__ == "__main__":
+    setup_permissions()
     try:
         init_session_state()
         main()
