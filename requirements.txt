@@ -1,61 +1,50 @@
-# Web App
-streamlit>=1.24.0
-st-annotated-text>=4.0.0
-streamlit-option-menu>=0.3.6
+# Web App Core
+streamlit==1.29.0
+st-annotated-text==4.0.0
+streamlit-option-menu==0.3.6
 
 # Firebase
-firebase-admin>=6.2.0
+firebase-admin==6.2.0
 
-# Scraping
-selenium>=4.10.0
-webdriver_manager>=3.8.6
-chromedriver-autoinstaller>=0.4.0
-wget>=3.2
-undetected-chromedriver>=3.5.3
-selenium-wire>=5.1.0
-fake-useragent>=1.3.0
+# Scraping Essentials
+selenium==4.15.2
+webdriver-manager==4.0.1
+undetected-chromedriver==3.5.3
+selenium-wire==5.1.0
+fake-useragent==1.3.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+requests==2.31.0
 
 # Data Processing
-pandas>=2.0.3
-numpy>=1.24.3
-openpyxl>=3.1.2
+pandas==2.1.4
+numpy==1.26.2
+openpyxl==3.1.2
 
-# PDF Processing
-PyPDF2>=3.0.1
-pdf2image>=1.16.3
-pytesseract>=0.3.10
+# Utils
+python-dotenv==1.0.0
+pytz==2023.3.post1
+python-dateutil==2.8.2
+tqdm==4.66.1
+tenacity==8.2.3
+retry==0.9.2
 
-# Utilities
-python-dotenv>=1.0.0
-requests>=2.31.0
-beautifulsoup4>=4.12.2
-lxml>=4.9.3
-tqdm>=4.66.1
-retry>=0.9.2
-tenacity>=8.2.3
-
-# Date/Time handling
-pytz>=2023.3
-python-dateutil>=2.8.2
-
-# Image Processing
-Pillow>=10.0.0
-
-# Logging
-loguru>=0.7.0
-
-# Testing
-pytest>=7.4.0
-pytest-selenium>=4.0.1
-
-# Development
-black>=23.7.0
-flake8>=6.1.0
-isort>=5.12.0
+# Logging & Monitoring
+loguru==0.7.2
 
 # Security
-cryptography>=41.0.3
-urllib3>=2.0.4
+cryptography==41.0.7
+urllib3==2.1.0
 
-# System
-psutil>=5.9.5
+# Testing (commented out for production)
+# pytest==7.4.3
+# pytest-selenium==4.1.1
+
+# Performance
+psutil==5.9.7
+
+# PDF & Image Processing (richiede dipendenze di sistema)
+PyPDF2==3.0.1
+pdf2image==1.16.3
+pytesseract==0.3.10
+Pillow==10.0.0

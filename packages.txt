@@ -1,0 +1,11 @@
+chromium
+chromium-driver
+firefox
+firefox-geckodriver
+xvfb
+tesseract-ocr
+tesseract-ocr-ita
+poppler-utils
+libpoppler-cpp-dev
+pkg-config
+python3-dev
