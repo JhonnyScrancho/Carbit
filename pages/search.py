@@ -4,8 +4,6 @@ from scrapers.portals.clickar import ClickarScraper
 from scrapers.portals.ayvens import AyvensScraper
 import pandas as pd
 from datetime import datetime
-from config.settings import PORTAL_CREDENTIALS
-from utils.firebase_manager import FirebaseManager
 
 def main():
     st.title("🚗 Ricerca Aste Auto")
