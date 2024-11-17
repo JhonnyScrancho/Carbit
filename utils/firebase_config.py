@@ -1,8 +1,9 @@
+# utils/firebase_config.py
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.exceptions import FirebaseError
-import json
+from utils.firebase_manager import FirebaseManager
 
 class FirebaseConfig:
     @staticmethod
@@ -12,7 +13,7 @@ class FirebaseConfig:
             # Check if Firebase is already initialized
             try:
                 firebase_admin.get_app()
-                st.session_state.db = firestore.client()
+                st.session_state['firebase_mgr'] = FirebaseManager()
                 return True
             except ValueError:
                 # Firebase not yet initialized
@@ -27,8 +28,8 @@ class FirebaseConfig:
             # Initialize Firebase
             firebase_admin.initialize_app(cred)
             
-            # Store db reference in session state
-            st.session_state.db = firestore.client()
+            # Initialize FirebaseManager
+            st.session_state['firebase_mgr'] = FirebaseManager()
             
             return True
 
