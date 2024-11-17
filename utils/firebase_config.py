@@ -7,30 +7,31 @@ import json
 class FirebaseConfig:
     @staticmethod
     def initialize_firebase():
+        """Initialize Firebase with credentials from Streamlit secrets"""
         try:
-            # Verifica se Firebase è già inizializzato
+            # Check if Firebase is already initialized
             try:
                 firebase_admin.get_app()
+                st.session_state.db = firestore.client()
                 return True
             except ValueError:
-                # Firebase non ancora inizializzato
+                # Firebase not yet initialized
                 pass
 
-            # Ottieni le credenziali da Streamlit secrets
-            firebase_secrets = dict(st.secrets["firebase"])
+            # Get credentials from Streamlit secrets
+            firebase_creds = dict(st.secrets["firebase"])
             
-            # Assicurati che la private key sia nel formato corretto
-            if "private_key" in firebase_secrets:
-                firebase_secrets["private_key"] = firebase_secrets["private_key"].replace("\\n", "\n")
-
-            # Inizializza Firebase
-            cred = credentials.Certificate(firebase_secrets)
+            # Create a temporary credential object
+            cred = credentials.Certificate(firebase_creds)
+            
+            # Initialize Firebase
             firebase_admin.initialize_app(cred)
+            
+            # Store db reference in session state
+            st.session_state.db = firestore.client()
             
             return True
 
         except Exception as e:
             st.error(f"❌ Errore nell'inizializzazione di Firebase: {str(e)}")
-            st.error("Dettagli credenziali:")
-            st.json(firebase_secrets)  # Per debug - RIMUOVERE IN PRODUZIONE
             return False
