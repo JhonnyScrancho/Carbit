@@ -8,8 +8,12 @@ from datetime import datetime
 def main():
     st.title("🚗 Ricerca Aste Auto")
     
-    # Usa il FirebaseManager dalla session state se disponibile
-    firebase_mgr = st.session_state.get('firebase_mgr')
+    # Ottieni il FirebaseManager già inizializzato dalla session state
+    if 'firebase_mgr' in st.session_state:
+        firebase_mgr = st.session_state.firebase_mgr
+    else:
+        st.error("❌ Firebase Manager non inizializzato")
+        return
     
     # Sidebar per i controlli
     with st.sidebar:
@@ -26,9 +30,10 @@ def main():
                     with st.spinner("Scraping Clickar..."):
                         try:
                             scraper = ClickarScraper()
+                            credentials = st.secrets.credentials.clickar
                             vehicles = scraper.scrape(
-                                st.secrets.credentials.clickar.username,
-                                st.secrets.credentials.clickar.password
+                                credentials.username,
+                                credentials.password
                             )
                             if vehicles:
                                 for v in vehicles:
@@ -36,10 +41,8 @@ def main():
                                 all_vehicles.extend(vehicles)
                                 
                                 # Salva su Firebase
-                                if firebase_mgr:
-                                    results = firebase_mgr.save_auction_batch(vehicles)
-                                    st.sidebar.info(f"Salvati {results['success']} veicoli su Firebase")
-                                
+                                results = firebase_mgr.save_auction_batch(vehicles)
+                                st.sidebar.info(f"Salvati {results['success']} veicoli su Firebase")
                                 st.sidebar.success(f"✅ Clickar: {len(vehicles)} veicoli trovati")
                             else:
                                 st.sidebar.error("❌ Clickar: Errore nel recupero dei dati")
@@ -51,19 +54,18 @@ def main():
                     with st.spinner("Scraping Ayvens..."):
                         try:
                             scraper = AyvensScraper()
+                            credentials = st.secrets.credentials.ayvens
                             vehicles = scraper.scrape(
-                                st.secrets.credentials.ayvens.username,
-                                st.secrets.credentials.ayvens.password
+                                credentials.username,
+                                credentials.password
                             )
                             if vehicles:
                                 for v in vehicles:
                                     v['fonte'] = 'Ayvens'
                                 all_vehicles.extend(vehicles)
                                 
-                                if firebase_mgr:
-                                    results = firebase_mgr.save_auction_batch(vehicles)
-                                    st.sidebar.info(f"Salvati {results['success']} veicoli su Firebase")
-                                
+                                results = firebase_mgr.save_auction_batch(vehicles)
+                                st.sidebar.info(f"Salvati {results['success']} veicoli su Firebase")
                                 st.sidebar.success(f"✅ Ayvens: {len(vehicles)} veicoli trovati")
                             else:
                                 st.sidebar.error("❌ Ayvens: Errore nel recupero dei dati")
