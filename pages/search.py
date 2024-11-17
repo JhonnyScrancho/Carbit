@@ -1,3 +1,4 @@
+# pages/search.py
 import streamlit as st
 from scrapers.portals.clickar import ClickarScraper
 from scrapers.portals.ayvens import AyvensScraper
@@ -8,11 +9,11 @@ from utils.firebase_manager import FirebaseManager
 def main():
     st.title("🚗 Ricerca Aste Auto")
     
-    # Verifica inizializzazione Firebase
+    # Usa il FirebaseManager già inizializzato in session_state
     firebase_mgr = st.session_state.get('firebase_mgr')
     if not firebase_mgr:
-        firebase_mgr = FirebaseManager()
-        st.session_state['firebase_mgr'] = firebase_mgr
+        st.error("Firebase non inizializzato correttamente")
+        return
     
     # Sidebar per i controlli
     with st.sidebar:
