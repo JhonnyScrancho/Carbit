@@ -1,32 +1,36 @@
-# utils/firebase_config.py
 import streamlit as st
-from firebase_admin import credentials, initialize_app, get_app, firestore
 import firebase_admin
+from firebase_admin import credentials, firestore
+from firebase_admin.exceptions import FirebaseError
+import json
 
 class FirebaseConfig:
     @staticmethod
     def initialize_firebase():
-        """Inizializza Firebase con gestione degli errori e stato"""
-        if 'firebase_initialized' not in st.session_state:
+        try:
+            # Verifica se Firebase è già inizializzato
             try:
-                # Verifica se Firebase è già inizializzato
-                try:
-                    app = get_app()
-                    st.session_state.db = firestore.client()
-                    st.session_state.firebase_initialized = True
-                    return True
-                except ValueError:
-                    pass
-
-                # Usa direttamente i secrets di Streamlit
-                cred = credentials.Certificate(dict(st.secrets["firebase"]))
-                initialize_app(cred)
-                st.session_state.db = firestore.client()
-                st.session_state.firebase_initialized = True
+                firebase_admin.get_app()
                 return True
+            except ValueError:
+                # Firebase non ancora inizializzato
+                pass
 
-            except Exception as e:
-                st.error(f"❌ Errore nell'inizializzazione di Firebase: {str(e)}")
-                return False
+            # Ottieni le credenziali da Streamlit secrets
+            firebase_secrets = dict(st.secrets["firebase"])
+            
+            # Assicurati che la private key sia nel formato corretto
+            if "private_key" in firebase_secrets:
+                firebase_secrets["private_key"] = firebase_secrets["private_key"].replace("\\n", "\n")
 
-        return st.session_state.firebase_initialized
+            # Inizializza Firebase
+            cred = credentials.Certificate(firebase_secrets)
+            firebase_admin.initialize_app(cred)
+            
+            return True
+
+        except Exception as e:
+            st.error(f"❌ Errore nell'inizializzazione di Firebase: {str(e)}")
+            st.error("Dettagli credenziali:")
+            st.json(firebase_secrets)  # Per debug - RIMUOVERE IN PRODUZIONE
+            return False

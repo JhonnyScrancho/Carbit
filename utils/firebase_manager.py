@@ -1,13 +1,14 @@
-# utils/firebase_manager.py
+import streamlit as st
 from firebase_admin import firestore
 from datetime import datetime
 from typing import Dict, List, Optional
+    
 
 class FirebaseManager:
     """Gestore delle operazioni su Firebase"""
     
-    def __init__(self, db: firestore.Client):
-        self.db = db
+    def __init__(self):
+        self.db = firestore.client()
         
     def save_vehicle(self, vehicle_data: Dict) -> bool:
         """
