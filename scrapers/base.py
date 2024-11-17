@@ -1,37 +1,52 @@
-# scrapers/base.py
 from abc import ABC, abstractmethod
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
 import chromedriver_autoinstaller
 import streamlit as st
 import platform
 import os
-import time
+import subprocess
 
 class BaseScraper(ABC):
     def __init__(self):
-        """Inizializzazione base dello scraper"""
         self.driver = None
         self.wait_time = 20
         self.wait = None
         self.debug = True
-        
+
+    def check_chrome_installation(self):
+        """Verifica e installa Chrome se necessario"""
+        try:
+            # Verifica se Chrome è installato
+            subprocess.run(['google-chrome', '--version'], 
+                         capture_output=True, 
+                         check=True)
+            st.write("✅ Google Chrome trovato")
+            return True
+        except:
+            st.error("❌ Google Chrome non trovato")
+            st.info("Installazione Chrome necessaria. Esegui questi comandi:")
+            st.code("""
+            wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            sudo dpkg -i google-chrome-stable_current_amd64.deb
+            sudo apt-get install -f
+            """)
+            return False
+
     def setup_driver(self) -> bool:
-        """
-        Setup dettagliato del webdriver con gestione errori
-        Returns:
-            bool: True se setup completato con successo, False altrimenti
-        """
+        """Setup dettagliato del webdriver con gestione errori"""
         try:
             st.write("🔧 Setup Chrome Driver:")
             
             # Info sistema
             st.write(f"Sistema Operativo: {platform.system()} {platform.release()}")
             st.write(f"Python Version: {platform.python_version()}")
+            
+            # Verifica Chrome
+            if not self.check_chrome_installation():
+                return False
             
             # Installa/aggiorna chromedriver
             st.write("Installing/updating chromedriver...")
@@ -44,11 +59,16 @@ class BaseScraper(ABC):
             chrome_options.add_argument("--window-size=1920,1080")
             chrome_options.add_argument("--disable-dev-shm-usage")
             
+            # Opzioni Linux specifiche
+            if platform.system() == "Linux":
+                chrome_options.add_argument("--disable-gpu")
+                chrome_options.add_argument("--disable-software-rasterizer")
+                chrome_options.binary_location = "/usr/bin/google-chrome"
+            
             # Verifica ambiente
             if os.getenv('STREAMLIT_SERVER_PORT'):
                 st.write("⚠️ Ambiente Streamlit Cloud rilevato")
                 chrome_options.add_argument("--headless=new")
-                chrome_options.add_argument("--disable-gpu")
             else:
                 st.write("💻 Ambiente locale rilevato")
                 
