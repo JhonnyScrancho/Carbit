@@ -10,9 +10,8 @@ from utils.firebase_manager import FirebaseManager
 def main():
     st.title("🚗 Ricerca Aste Auto")
     
-    # Inizializza Firebase Manager
-    if 'db' in st.session_state:
-        firebase_mgr = FirebaseManager(st.session_state.db)
+    # Usa il FirebaseManager dalla session state se disponibile
+    firebase_mgr = st.session_state.get('firebase_mgr')
     
     # Sidebar per i controlli
     with st.sidebar:
@@ -29,10 +28,9 @@ def main():
                     with st.spinner("Scraping Clickar..."):
                         try:
                             scraper = ClickarScraper()
-                            credentials = PORTAL_CREDENTIALS['clickar']
                             vehicles = scraper.scrape(
-                                credentials['username'],
-                                credentials['password']
+                                st.secrets.credentials.clickar.username,
+                                st.secrets.credentials.clickar.password
                             )
                             if vehicles:
                                 for v in vehicles:
@@ -40,7 +38,7 @@ def main():
                                 all_vehicles.extend(vehicles)
                                 
                                 # Salva su Firebase
-                                if 'db' in st.session_state:
+                                if firebase_mgr:
                                     results = firebase_mgr.save_auction_batch(vehicles)
                                     st.sidebar.info(f"Salvati {results['success']} veicoli su Firebase")
                                 
@@ -55,17 +53,16 @@ def main():
                     with st.spinner("Scraping Ayvens..."):
                         try:
                             scraper = AyvensScraper()
-                            credentials = PORTAL_CREDENTIALS['ayvens']
                             vehicles = scraper.scrape(
-                                credentials['username'],
-                                credentials['password']
+                                st.secrets.credentials.ayvens.username,
+                                st.secrets.credentials.ayvens.password
                             )
                             if vehicles:
                                 for v in vehicles:
                                     v['fonte'] = 'Ayvens'
                                 all_vehicles.extend(vehicles)
                                 
-                                if 'db' in st.session_state:
+                                if firebase_mgr:
                                     results = firebase_mgr.save_auction_batch(vehicles)
                                     st.sidebar.info(f"Salvati {results['success']} veicoli su Firebase")
                                 
@@ -97,21 +94,21 @@ def main():
         with col2:
             location_filter = st.multiselect(
                 "Ubicazione",
-                options=sorted(df['location'].unique())
+                options=sorted(df['location'].unique()) if 'location' in df.columns else []
             )
         with col3:
             status_filter = st.multiselect(
                 "Stato",
-                options=sorted(df['status'].unique())
+                options=sorted(df['status'].unique()) if 'status' in df.columns else []
             )
         
         # Applica filtri
         filtered_df = df.copy()
         if brand_filter:
             filtered_df = filtered_df[filtered_df['brand_model'].str.split().str[0].isin(brand_filter)]
-        if location_filter:
+        if location_filter and 'location' in df.columns:
             filtered_df = filtered_df[filtered_df['location'].isin(location_filter)]
-        if status_filter:
+        if status_filter and 'status' in df.columns:
             filtered_df = filtered_df[filtered_df['status'].isin(status_filter)]
         
         # Visualizzazione risultati
