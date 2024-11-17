@@ -25,7 +25,7 @@ if firebase_initialized:
 
 def main():
     # Header principale
-    st.title("🚗 Auto Arbitrage")
+    st.title("🚗 Carbit")
     st.write("Sistema di monitoraggio e analisi delle aste auto")
     
     if not firebase_initialized:
