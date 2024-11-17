@@ -1,14 +1,4 @@
 # config/settings.py
-PORTAL_CREDENTIALS = {
-    'clickar': {
-        'username': 'W81072F',
-        'password': 'Fammiincollare!'
-    },
-    'ayvens': {
-        'username': 'justcars',
-        'password': 'Sandaliecalzini11!'
-    }
-}
 
 # URL portali
 PORTAL_URLS = {
@@ -26,4 +16,18 @@ CACHE_SETTINGS = {
 SELENIUM_SETTINGS = {
     'implicit_wait': 10,
     'page_load_timeout': 30
+}
+
+# Configurazioni UI
+UI_SETTINGS = {
+    'items_per_page': 20,
+    'default_currency': 'EUR',
+    'date_format': '%d/%m/%Y'
+}
+
+# Configurazioni business logic
+BUSINESS_SETTINGS = {
+    'min_margin_percentage': 20,
+    'max_vehicle_age_years': 5,
+    'max_mileage_km': 100000
 }
