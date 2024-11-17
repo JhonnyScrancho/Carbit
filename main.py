@@ -23,7 +23,7 @@ if 'firebase_initialized' not in st.session_state:
     st.session_state.firebase_initialized = FirebaseConfig.initialize_firebase()
     
 if st.session_state.firebase_initialized and 'firebase_mgr' not in st.session_state:
-    st.session_state.firebase_mgr = FirebaseManager()
+    st.session_state.firebase_mgr = FirebaseManager.get_instance()
 
 def show_dashboard():
     st.header("📊 Dashboard")

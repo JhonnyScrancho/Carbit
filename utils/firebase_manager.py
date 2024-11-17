@@ -1,4 +1,3 @@
-# utils/firebase_manager.py
 from firebase_admin import firestore
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -13,6 +12,17 @@ class FirebaseManager:
         except Exception as e:
             print(f"Errore nell'inizializzazione del FirebaseManager: {str(e)}")
             self.db = None
+
+    @classmethod
+    def get_instance(cls):
+        """
+        Singleton pattern per ottenere un'istanza del FirebaseManager
+        Returns:
+            FirebaseManager: Istanza unica del manager
+        """
+        if not hasattr(cls, '_instance'):
+            cls._instance = cls()
+        return cls._instance
     
     def save_vehicle(self, vehicle_data: Dict) -> bool:
         """
