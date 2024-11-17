@@ -4,16 +4,12 @@ from scrapers.portals.clickar import ClickarScraper
 from scrapers.portals.ayvens import AyvensScraper
 import pandas as pd
 from datetime import datetime
-from utils.firebase_manager import FirebaseManager
 
 def main():
     st.title("🚗 Ricerca Aste Auto")
     
-    # Usa il FirebaseManager già inizializzato in session_state
+    # Verifica che firebase_mgr sia disponibile
     firebase_mgr = st.session_state.get('firebase_mgr')
-    if not firebase_mgr:
-        st.error("Firebase non inizializzato correttamente")
-        return
     
     # Sidebar per i controlli
     with st.sidebar:
@@ -22,6 +18,10 @@ def main():
         ayvens_enabled = st.checkbox("Ayvens", value=True)
         
         if st.button("Avvia Ricerca", type="primary"):
+            if not firebase_mgr:
+                st.error("Firebase non inizializzato correttamente")
+                return
+                
             with st.spinner("Recupero aste in corso..."):
                 all_vehicles = []
                 

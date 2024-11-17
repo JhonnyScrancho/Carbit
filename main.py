@@ -21,9 +21,9 @@ st.set_page_config(
 # Inizializzazione Firebase e stato globale
 if 'firebase_initialized' not in st.session_state:
     st.session_state.firebase_initialized = FirebaseConfig.initialize_firebase()
-    
-if st.session_state.firebase_initialized and 'firebase_mgr' not in st.session_state:
-    st.session_state.firebase_mgr = FirebaseManager.get_instance()
+
+if st.session_state.get('firebase_initialized') and 'firebase_mgr' not in st.session_state:
+    st.session_state.firebase_mgr = FirebaseManager()
 
 def show_dashboard():
     st.header("📊 Dashboard")
@@ -73,7 +73,7 @@ def show_dashboard():
         
     with col2:
         st.subheader("🎯 Top Opportunità")
-        if st.session_state.firebase_initialized:
+        if st.session_state.get('firebase_initialized'):
             st.dataframe(
                 pd.DataFrame({
                     'Veicolo': ['Audi A3', 'BMW X1', 'Mercedes C220'],
@@ -91,7 +91,6 @@ def show_search():
         search_main()
     except Exception as e:
         st.error(f"Errore nel caricamento della pagina di ricerca: {str(e)}")
-        st.exception(e)
 
 def show_analysis():
     st.header("📊 Analisi Veicoli")
@@ -114,7 +113,7 @@ def show_analysis():
 def show_watchlist():
     st.header("👀 Watchlist")
     
-    if st.session_state.firebase_initialized:
+    if st.session_state.get('firebase_initialized'):
         st.info("Watchlist in sviluppo")
         
         col1, col2 = st.columns(2)
@@ -130,7 +129,7 @@ def main():
     st.title("🚗 Auto Arbitrage")
     st.write("Sistema di monitoraggio e analisi delle aste auto")
     
-    if not st.session_state.firebase_initialized:
+    if not st.session_state.get('firebase_initialized'):
         st.warning("⚠️ Firebase non inizializzato. Alcune funzionalità potrebbero non essere disponibili.")
     
     # Menu principale nella sidebar
@@ -138,9 +137,8 @@ def main():
         st.title("Menu")
         
         # Sezione utente
-        if st.session_state.firebase_initialized:
+        if st.session_state.get('firebase_initialized'):
             st.write("👤 Utente connesso")
-            # TODO: Aggiungere gestione utente
         
         # Menu principale
         menu = st.radio(
@@ -163,16 +161,5 @@ def main():
     elif menu == "Watchlist":
         show_watchlist()
 
-# Gestione errori globale
-def handle_error(func):
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            st.error(f"Si è verificato un errore: {str(e)}")
-            st.exception(e)
-    return wrapper
-
-# Entry point con gestione errori
 if __name__ == "__main__":
-    handle_error(main)()
+    main()
