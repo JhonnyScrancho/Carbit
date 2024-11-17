@@ -1,4 +1,3 @@
-# scrapers/base.py
 from abc import ABC, abstractmethod
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -12,34 +11,42 @@ import platform
 import os
 
 class BaseScraper(ABC):
-    def __init__(self):
+    def __init__(self, headless: bool = True):
         self.driver = None
         self.wait_time = 20
         self.wait = None
         self.debug = True
+        self.headless = headless
+        self.base_url = None
 
     def setup_driver(self) -> bool:
         try:
             st.write("🔧 Setup Chrome Driver:")
             
             # Info sistema
-            st.write(f"Sistema Operativo: {platform.system()} {platform.release()}")
+            st.write(f"Sistema Operativo: {platform.system() or 'Unknown'} {platform.release() or ''}")
             st.write(f"Python Version: {platform.python_version()}")
             
             # Opzioni Chrome
             chrome_options = Options()
-            chrome_options.add_argument('--headless=new')
+            if self.headless:
+                chrome_options.add_argument('--headless=new')
             chrome_options.add_argument('--disable-gpu')
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-blink-features=AutomationControlled')
             chrome_options.add_argument('--start-maximized')
             chrome_options.add_argument('--window-size=1920,1080')
+            chrome_options.add_argument('--remote-debugging-port=9222')
             
             # User agent realistico
             chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
             
-            # Setup del service usando ChromeDriverManager direttamente
+            # Impostazioni aggiuntive
+            chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+            
+            # Setup del service
             st.write("Installazione ChromeDriver...")
             service = Service(ChromeDriverManager().install())
             

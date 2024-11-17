@@ -1,17 +1,20 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 from scrapers.base import BaseScraper
 import time
 import streamlit as st
 
 class ClickarScraper(BaseScraper):
-    def __init__(self):
-        """Inizializzazione dello scraper Clickar"""
-        super().__init__()
+    def __init__(self, headless: bool = True):
+        """
+        Inizializzazione dello scraper Clickar
+        Args:
+            headless: Se True, esegue il browser in modalità headless
+        """
+        super().__init__(headless=headless)
         self.base_url = "https://www.clickar.biz/private"
-        self.wait_time = 20
+        self.is_logged_in = False
         
     def login(self, username: str, password: str) -> bool:
         """
