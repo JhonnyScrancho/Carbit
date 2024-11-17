@@ -1,102 +1,125 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from scrapers.base import BaseScraper
 import time
 import streamlit as st
 
 class ClickarScraper(BaseScraper):
     def __init__(self, headless: bool = True):
-        """
-        Inizializzazione dello scraper Clickar
-        Args:
-            headless: Se True, esegue il browser in modalità headless
-        """
         super().__init__(headless=headless)
         self.base_url = "https://www.clickar.biz/private"
         self.is_logged_in = False
-        
+
     def login(self, username: str, password: str) -> bool:
-        """
-        Gestisce il flusso di login su Clickar
-        Args:
-            username: Username per il login
-            password: Password per il login
-        Returns:
-            bool: True se il login ha successo, False altrimenti
-        """
+        """Gestisce il login su Clickar con debug esteso"""
         try:
-            # 1. Navigazione alla pagina principale
+            if not self.driver:
+                if not self.setup_driver():
+                    return False
+            
             st.write("🌐 Navigazione alla homepage...")
             self.driver.get(self.base_url)
             time.sleep(5)  # Attesa caricamento iniziale
             
-            # 2. Gestione iframe login
-            st.write("🔄 Ricerca form di login...")
+            # Salva screenshot per debug
+            self.driver.save_screenshot("pre_login.png")
+            st.write("Screenshot pre-login salvato")
             
-            # Verifica presenza iframe o form diretto
-            if self.is_element_present(By.ID, "loginFrame"):
-                iframe = self.wait.until(
-                    EC.presence_of_element_located((By.ID, "loginFrame"))
-                )
-                self.driver.switch_to.frame(iframe)
-                
-            # 3. Compila form login
-            st.write("📝 Compilazione credenziali...")
-            username_field = self.wait.until(
+            st.write("🔄 Gestione iframe...")
+            # Trova l'iframe corretto
+            iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
+            st.write(f"Trovati {len(iframes)} iframe")
+            
+            login_frame = None
+            for frame in iframes:
+                try:
+                    frame_id = frame.get_attribute('id')
+                    frame_src = frame.get_attribute('src')
+                    st.write(f"Frame trovato - ID: {frame_id}, SRC: {frame_src}")
+                    if 'sts.fiatgroup' in frame_src or 'login' in frame_src.lower():
+                        login_frame = frame
+                        st.write("✅ Frame login trovato!")
+                        break
+                except:
+                    continue
+            
+            if not login_frame:
+                st.error("❌ Frame login non trovato")
+                return False
+            
+            st.write("🔄 Switch al frame login...")
+            self.driver.switch_to.frame(login_frame)
+            
+            # Attendi e compila username
+            st.write("📝 Compilazione username...")
+            username_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, "userNameInput"))
             )
-            password_field = self.wait.until(
-                EC.presence_of_element_located((By.ID, "passwordInput"))
-            )
+            username_field.clear()
+            username_field.send_keys(username)
+            time.sleep(1)
             
-            # Clear e input con retry
+            # Compila password
+            st.write("📝 Compilazione password...")
+            password_field = self.driver.find_element(By.ID, "passwordInput")
+            password_field.clear()
+            password_field.send_keys(password)
+            time.sleep(1)
+            
+            # Click login con retry
+            st.write("🔐 Click sul bottone login...")
             for _ in range(3):  # 3 tentativi
                 try:
-                    username_field.clear()
-                    username_field.send_keys(username)
-                    password_field.clear()
-                    password_field.send_keys(password)
+                    submit_button = self.driver.find_element(By.ID, "submitButton")
+                    submit_button.click()
                     break
                 except:
                     time.sleep(1)
+                    continue
             
-            # 4. Submit login
-            st.write("🔐 Invio credenziali...")
-            submit_button = self.wait.until(
-                EC.element_to_be_clickable((By.ID, "submitButton"))
-            )
-            submit_button.click()
-            time.sleep(3)  # Attesa post-click
+            # Torna al contesto principale
+            st.write("🔄 Ritorno al contesto principale...")
+            self.driver.switch_to.default_content()
+            time.sleep(5)  # Attesa post-login
             
-            # 5. Torna al contesto principale
-            if self.is_element_present(By.ID, "loginFrame"):
-                self.driver.switch_to.default_content()
+            # Salva screenshot post-login
+            self.driver.save_screenshot("post_login.png")
+            st.write("Screenshot post-login salvato")
             
-            # 6. Verifica login
+            # Verifica login con multipli selettori
             st.write("✅ Verifica login...")
-            try:
-                # Verifica multipla per conferma login
-                success = any([
-                    self.wait_for_element(By.CLASS_NAME, "carusedred", 10),
-                    self.wait_for_element(By.CLASS_NAME, "user-menu", 5),
-                    self.wait_for_element(By.CLASS_NAME, "logged-user", 5)
-                ])
-                
-                if success:
-                    st.success("Login completato con successo!")
+            success_selectors = [
+                (By.CLASS_NAME, "carusedred"),
+                (By.CLASS_NAME, "user-menu"),
+                (By.CLASS_NAME, "logged-user"),
+                (By.XPATH, "//span[contains(text(), 'INTROVABILI')]"),
+                (By.XPATH, "//a[contains(text(), 'INTROVABILI')]")
+            ]
+            
+            for selector_type, selector_value in success_selectors:
+                try:
+                    element = WebDriverWait(self.driver, 5).until(
+                        EC.presence_of_element_located((selector_type, selector_value))
+                    )
+                    st.success(f"✅ Login verificato! Elemento trovato: {selector_value}")
+                    self.is_logged_in = True
                     return True
-                else:
-                    st.error("Login fallito - Menu non trovato")
-                    return False
-                    
-            except TimeoutException:
-                st.error("Login fallito - Timeout verifica")
-                return False
-                
+                except:
+                    continue
+            
+            st.error("❌ Login fallito - Nessun elemento di verifica trovato")
+            return False
+            
         except Exception as e:
-            st.error(f"Errore durante il login: {str(e)}")
-            self.save_debug_screenshot("login_error")
+            st.error(f"❌ Errore durante il login: {str(e)}")
+            # Salva screenshot in caso di errore
+            try:
+                self.driver.save_screenshot("login_error.png")
+                st.write("Screenshot errore salvato")
+            except:
+                st.write("⚠️ Impossibile salvare screenshot errore")
             return False
 
     def navigate_to_introvabili(self) -> bool:
