@@ -1,4 +1,3 @@
-# pages/search.py
 import streamlit as st
 from scrapers.portals.clickar import ClickarScraper
 from scrapers.portals.ayvens import AyvensScraper
@@ -8,11 +7,14 @@ from datetime import datetime
 def main():
     st.title("🚗 Ricerca Aste Auto")
     
-    # Ottieni il FirebaseManager già inizializzato dalla session state
-    if 'firebase_mgr' in st.session_state:
-        firebase_mgr = st.session_state.firebase_mgr
-    else:
-        st.error("❌ Firebase Manager non inizializzato")
+    # Verifica inizializzazione Firebase
+    if not st.session_state.get('firebase_initialized', False):
+        st.error("⚠️ Firebase non inizializzato")
+        return
+    
+    firebase_mgr = st.session_state.get('firebase_mgr')
+    if not firebase_mgr:
+        st.error("⚠️ Firebase Manager non disponibile")
         return
     
     # Sidebar per i controlli
@@ -40,7 +42,6 @@ def main():
                                     v['fonte'] = 'Clickar'
                                 all_vehicles.extend(vehicles)
                                 
-                                # Salva su Firebase
                                 results = firebase_mgr.save_auction_batch(vehicles)
                                 st.sidebar.info(f"Salvati {results['success']} veicoli su Firebase")
                                 st.sidebar.success(f"✅ Clickar: {len(vehicles)} veicoli trovati")

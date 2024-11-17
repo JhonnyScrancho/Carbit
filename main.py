@@ -1,4 +1,3 @@
-# main.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime
@@ -7,7 +6,7 @@ from utils.firebase_manager import FirebaseManager
 
 # Configurazione della pagina principale
 st.set_page_config(
-    page_title="Carbit",
+    page_title="Auto Arbitrage",
     page_icon="🚗",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -19,9 +18,10 @@ st.set_page_config(
 )
 
 # Inizializzazione Firebase e stato globale
-firebase_initialized = FirebaseConfig.initialize_firebase()
-
-if firebase_initialized and 'firebase_mgr' not in st.session_state:
+if 'firebase_initialized' not in st.session_state:
+    st.session_state.firebase_initialized = FirebaseConfig.initialize_firebase()
+    
+if st.session_state.firebase_initialized and 'firebase_mgr' not in st.session_state:
     st.session_state.firebase_mgr = FirebaseManager()
 
 def main():
@@ -29,7 +29,7 @@ def main():
     st.title("🚗 Auto Arbitrage")
     st.write("Sistema di monitoraggio e analisi delle aste auto")
     
-    if not firebase_initialized:
+    if not st.session_state.firebase_initialized:
         st.warning("⚠️ Firebase non inizializzato. Alcune funzionalità potrebbero non essere disponibili.")
     
     # Menu principale nella sidebar
@@ -37,7 +37,7 @@ def main():
         st.title("Menu")
         
         # Sezione utente
-        if firebase_initialized:
+        if st.session_state.firebase_initialized:
             st.write("👤 Utente connesso")
             # TODO: Aggiungere gestione utente
         
