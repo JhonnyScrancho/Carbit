@@ -3,19 +3,16 @@ from scrapers.portals.clickar import ClickarScraper
 from scrapers.portals.ayvens import AyvensScraper
 import pandas as pd
 from datetime import datetime
+from utils.firebase_manager import FirebaseManager
 
 def main():
     st.title("🚗 Ricerca Aste Auto")
     
     # Verifica inizializzazione Firebase
-    if not st.session_state.get('firebase_initialized', False):
-        st.error("⚠️ Firebase non inizializzato")
-        return
-    
     firebase_mgr = st.session_state.get('firebase_mgr')
     if not firebase_mgr:
-        st.error("⚠️ Firebase Manager non disponibile")
-        return
+        firebase_mgr = FirebaseManager()
+        st.session_state['firebase_mgr'] = firebase_mgr
     
     # Sidebar per i controlli
     with st.sidebar:

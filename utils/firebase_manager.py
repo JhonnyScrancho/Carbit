@@ -1,16 +1,19 @@
-import streamlit as st
+# utils/firebase_manager.py
 from firebase_admin import firestore
 from datetime import datetime
 from typing import Dict, List, Optional
-    
 
 class FirebaseManager:
     """Gestore delle operazioni su Firebase"""
     
     def __init__(self):
         """Initialize Firebase Manager"""
-        self.db = firestore.client()
-        
+        try:
+            self.db = firestore.client()
+        except Exception as e:
+            print(f"Errore nell'inizializzazione del FirebaseManager: {str(e)}")
+            self.db = None
+    
     def save_vehicle(self, vehicle_data: Dict) -> bool:
         """
         Salva o aggiorna i dati di un veicolo
@@ -19,6 +22,9 @@ class FirebaseManager:
         Returns:
             bool: True se l'operazione ha successo, False altrimenti
         """
+        if not self.db:
+            return False
+            
         try:
             # Usa la targa come ID documento
             doc_ref = self.db.collection('vehicles').document(vehicle_data['plate'])
@@ -55,6 +61,9 @@ class FirebaseManager:
         Returns:
             Dict: Risultati dell'operazione con conteggio successi/fallimenti
         """
+        if not self.db:
+            return {'success': 0, 'failed': len(vehicles)}
+            
         try:
             batch = self.db.batch()
             results = {'success': 0, 'failed': 0}
@@ -62,7 +71,7 @@ class FirebaseManager:
             for vehicle in vehicles:
                 try:
                     # Documento principale del veicolo
-                    doc_ref = self.db.collection('vehicles').document(vehicle['plate'])
+                    doc_ref = self.db.collection('vehicles').document(vehicle.get('plate', ''))
                     
                     # Aggiungi timestamp
                     vehicle.update({
@@ -99,6 +108,9 @@ class FirebaseManager:
         Returns:
             Optional[Dict]: Dati del veicolo con storico prezzi o None se non trovato
         """
+        if not self.db:
+            return None
+            
         try:
             # Recupera dati principali
             doc_ref = self.db.collection('vehicles').document(plate)
@@ -133,6 +145,9 @@ class FirebaseManager:
         Returns:
             bool: True se l'operazione ha successo, False altrimenti
         """
+        if not self.db:
+            return False
+            
         try:
             watchlist_ref = self.db.collection('watchlist').document(user_id)
             watchlist_ref.set({
@@ -144,6 +159,29 @@ class FirebaseManager:
             print(f"Errore nell'aggiunta alla watchlist: {str(e)}")
             return False
 
+    def remove_from_watchlist(self, user_id: str, vehicle_plate: str) -> bool:
+        """
+        Rimuove un veicolo dalla watchlist dell'utente
+        Args:
+            user_id (str): ID dell'utente
+            vehicle_plate (str): Targa del veicolo da rimuovere
+        Returns:
+            bool: True se l'operazione ha successo, False altrimenti
+        """
+        if not self.db:
+            return False
+            
+        try:
+            watchlist_ref = self.db.collection('watchlist').document(user_id)
+            watchlist_ref.update({
+                'vehicles': firestore.ArrayRemove([vehicle_plate]),
+                'last_updated': datetime.now()
+            })
+            return True
+        except Exception as e:
+            print(f"Errore nella rimozione dalla watchlist: {str(e)}")
+            return False
+
     def get_watchlist(self, user_id: str) -> List[Dict]:
         """
         Recupera tutti i veicoli nella watchlist dell'utente
@@ -152,6 +190,9 @@ class FirebaseManager:
         Returns:
             List[Dict]: Lista di veicoli monitorati
         """
+        if not self.db:
+            return []
+            
         try:
             # Recupera la watchlist dell'utente
             watchlist_doc = self.db.collection('watchlist').document(user_id).get()
@@ -168,4 +209,54 @@ class FirebaseManager:
             return vehicles
         except Exception as e:
             print(f"Errore nel recupero watchlist: {str(e)}")
+            return []
+
+    def get_all_vehicles(self) -> List[Dict]:
+        """
+        Recupera tutti i veicoli dal database
+        Returns:
+            List[Dict]: Lista di tutti i veicoli
+        """
+        if not self.db:
+            return []
+            
+        try:
+            vehicles = []
+            vehicles_ref = self.db.collection('vehicles').stream()
+            
+            for doc in vehicles_ref:
+                vehicle_data = doc.to_dict()
+                vehicle_data['id'] = doc.id
+                vehicles.append(vehicle_data)
+                
+            return vehicles
+        except Exception as e:
+            print(f"Errore nel recupero di tutti i veicoli: {str(e)}")
+            return []
+
+    def get_active_auctions(self) -> List[Dict]:
+        """
+        Recupera tutte le aste attive
+        Returns:
+            List[Dict]: Lista delle aste attive
+        """
+        if not self.db:
+            return []
+            
+        try:
+            auctions = []
+            now = datetime.now()
+            
+            auctions_ref = self.db.collection('auctions').where(
+                'end_date', '>', now
+            ).stream()
+            
+            for doc in auctions_ref:
+                auction_data = doc.to_dict()
+                auction_data['id'] = doc.id
+                auctions.append(auction_data)
+                
+            return auctions
+        except Exception as e:
+            print(f"Errore nel recupero delle aste attive: {str(e)}")
             return []
