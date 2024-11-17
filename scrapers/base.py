@@ -1,3 +1,4 @@
+# scrapers/base.py
 from abc import ABC, abstractmethod
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -5,10 +6,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 import streamlit as st
 import platform
 import os
+import subprocess
 
 class BaseScraper(ABC):
     def __init__(self, headless: bool = True):
@@ -17,7 +18,6 @@ class BaseScraper(ABC):
         self.wait = None
         self.debug = True
         self.headless = headless
-        self.base_url = None
 
     def setup_driver(self) -> bool:
         try:
@@ -31,26 +31,25 @@ class BaseScraper(ABC):
             chrome_options = Options()
             if self.headless:
                 chrome_options.add_argument('--headless=new')
-            chrome_options.add_argument('--disable-gpu')
+            
+            # Opzioni base necessarie
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-            chrome_options.add_argument('--start-maximized')
+            chrome_options.add_argument('--disable-gpu')
             chrome_options.add_argument('--window-size=1920,1080')
-            chrome_options.add_argument('--remote-debugging-port=9222')
             
-            # User agent realistico
-            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            
-            # Impostazioni aggiuntive
+            # Opzioni anti-detection
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
             chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])
             chrome_options.add_experimental_option('useAutomationExtension', False)
+            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
             
-            # Setup del service
-            st.write("Installazione ChromeDriver...")
-            service = Service(ChromeDriverManager().install())
+            # Per Chromium su Debian/Ubuntu
+            chrome_options.binary_location = '/usr/bin/chromium'
             
-            # Inizializzazione driver
+            # Usa il chromedriver di sistema
+            service = Service('/usr/bin/chromedriver')
+            
             st.write("Inizializzazione Chrome...")
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
             self.wait = WebDriverWait(self.driver, self.wait_time)
@@ -59,7 +58,6 @@ class BaseScraper(ABC):
             st.write("Test di navigazione...")
             self.driver.get("https://www.google.com")
             st.success("✅ Driver inizializzato correttamente")
-            
             return True
             
         except Exception as e:
