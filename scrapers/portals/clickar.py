@@ -40,7 +40,7 @@ class ClickarScraper(BaseScraper):
             return False
 
     def login(self, username: str, password: str) -> bool:
-        """Gestisce il login su Clickar con debug esteso"""
+        """Gestisce il login su Clickar con form specifico"""
         try:
             if not self.driver:
                 if not self.setup_driver():
@@ -51,7 +51,6 @@ class ClickarScraper(BaseScraper):
             time.sleep(5)  # Attesa caricamento iniziale
             
             # Screenshot pre-login
-            st.write("📸 Cattura stato iniziale...")
             self.save_screenshot_st("pre_login")
             
             st.write("🔄 Gestione iframe...")
@@ -79,64 +78,106 @@ class ClickarScraper(BaseScraper):
             
             st.write("🔄 Switch al frame login...")
             self.driver.switch_to.frame(login_frame)
+            time.sleep(2)
             self.save_screenshot_st("inside_frame")
             
-            # Attendi e compila username
+            # Verifica presenza form
+            try:
+                form_area = self.wait.until(
+                    EC.presence_of_element_located((By.ID, "formsAuthenticationArea"))
+                )
+                st.write("✅ Form di autenticazione trovato")
+            except:
+                st.error("❌ Form di autenticazione non trovato")
+                self.save_screenshot_st("no_form_error")
+                return False
+            
+            # Compila username usando multiple strategie
             st.write("📝 Compilazione username...")
             try:
                 username_field = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.ID, "userNameInput"))
+                    EC.presence_of_element_located((By.XPATH, "//input[@type='email'][@id='userNameInput']"))
                 )
+                # Pulisci campo
                 username_field.clear()
-                username_field.send_keys(username)
+                # Invia con Actions
+                actions = ActionChains(self.driver)
+                actions.move_to_element(username_field)
+                actions.click()
+                actions.send_keys(username)
+                actions.perform()
                 time.sleep(1)
+                
+                # Verifica inserimento
+                if username_field.get_attribute('value') != username:
+                    # Prova metodo alternativo
+                    username_field.send_keys(Keys.CONTROL + "a")  # Seleziona tutto
+                    username_field.send_keys(Keys.DELETE)  # Cancella
+                    username_field.send_keys(username)  # Reinserisci
+                    
+                st.write("✅ Username inserito")
             except:
-                st.error("❌ Campo username non trovato")
+                st.error("❌ Errore inserimento username")
                 self.save_screenshot_st("username_error")
                 return False
             
             # Compila password
             st.write("📝 Compilazione password...")
             try:
-                password_field = self.driver.find_element(By.ID, "passwordInput")
+                password_field = self.driver.find_element(
+                    By.XPATH, 
+                    "//input[@type='password'][@id='passwordInput']"
+                )
+                # Pulisci campo
                 password_field.clear()
-                password_field.send_keys(password)
+                # Invia con Actions
+                actions = ActionChains(self.driver)
+                actions.move_to_element(password_field)
+                actions.click()
+                actions.send_keys(password)
+                actions.perform()
                 time.sleep(1)
+                
+                st.write("✅ Password inserita")
             except:
-                st.error("❌ Campo password non trovato")
+                st.error("❌ Errore inserimento password")
                 self.save_screenshot_st("password_error")
                 return False
             
             # Screenshot pre-submit
             self.save_screenshot_st("pre_submit")
             
-            # Click login con retry
+            # Click sul bottone submit usando JavaScript
             st.write("🔐 Click sul bottone login...")
-            submit_success = False
-            for attempt in range(3):
+            try:
+                submit_button = self.wait.until(
+                    EC.presence_of_element_located((By.ID, "submitButton"))
+                )
+                
+                # Prova prima click normale
                 try:
-                    submit_button = self.driver.find_element(By.ID, "submitButton")
                     submit_button.click()
-                    submit_success = True
-                    break
                 except:
-                    st.warning(f"⚠️ Tentativo {attempt + 1} fallito, riprovo...")
-                    time.sleep(1)
-            
-            if not submit_success:
-                st.error("❌ Impossibile cliccare il bottone submit")
+                    # Se fallisce, usa JavaScript
+                    self.driver.execute_script("arguments[0].click();", submit_button)
+                    # Se anche JavaScript fallisce, prova la funzione di login diretta
+                    self.driver.execute_script("Login.submitLoginRequest();")
+                
+                time.sleep(5)  # Attesa post-click
+                
+            except:
+                st.error("❌ Errore click submit")
                 self.save_screenshot_st("submit_error")
                 return False
             
             # Torna al contesto principale
-            st.write("🔄 Ritorno al contesto principale...")
             self.driver.switch_to.default_content()
             time.sleep(5)  # Attesa post-login
             
             # Screenshot post-login
             self.save_screenshot_st("post_login")
             
-            # Verifica login con multipli selettori
+            # Verifica login
             st.write("✅ Verifica login...")
             success_selectors = [
                 (By.CLASS_NAME, "carusedred"),
