@@ -39,173 +39,113 @@ class ClickarScraper(BaseScraper):
             st.error(f"❌ Errore salvataggio screenshot {name}: {str(e)}")
             return False
 
-    def login(self, username: str, password: str) -> bool:
-        """Gestisce il login su Clickar con form specifico"""
+    def login(self, username, password):
         try:
-            if not self.driver:
-                if not self.setup_driver():
-                    return False
+            # Navigate to login page
+            st.write("🌐 Navigating to login page...")
+            self.scraper.driver.get("https://www.clickar.biz/private")
+            time.sleep(5)
             
-            st.write("🌐 Navigazione alla homepage...")
-            self.driver.get(self.base_url)
-            time.sleep(5)  # Attesa caricamento iniziale
-            
-            # Screenshot pre-login
-            self.save_screenshot_st("pre_login")
-            
-            st.write("🔄 Gestione iframe...")
-            # Trova l'iframe corretto
-            iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
-            st.write(f"Trovati {len(iframes)} iframe")
-            
+            # Handle iframe
+            st.write("🔄 Locating login iframe...")
             login_frame = None
-            for frame in iframes:
+            frames = self.scraper.driver.find_elements(By.TAG_NAME, "iframe") 
+            for frame in frames:
                 try:
-                    frame_id = frame.get_attribute('id')
-                    frame_src = frame.get_attribute('src')
-                    st.write(f"Frame trovato - ID: {frame_id}, SRC: {frame_src}")
-                    if 'sts.fiatgroup' in frame_src or 'login' in frame_src.lower():
+                    src = frame.get_attribute('src')
+                    if 'sts.fiatgroup.com' in src:
                         login_frame = frame
-                        st.write("✅ Frame login trovato!")
+                        st.write("✅ Login frame found!")
                         break
                 except:
                     continue
-            
-            if not login_frame:
-                st.error("❌ Frame login non trovato")
-                self.save_screenshot_st("no_frame_error")
-                return False
-            
-            st.write("🔄 Switch al frame login...")
-            self.driver.switch_to.frame(login_frame)
-            time.sleep(2)
-            self.save_screenshot_st("inside_frame")
-            
-            # Verifica presenza form
-            try:
-                form_area = self.wait.until(
-                    EC.presence_of_element_located((By.ID, "formsAuthenticationArea"))
-                )
-                st.write("✅ Form di autenticazione trovato")
-            except:
-                st.error("❌ Form di autenticazione non trovato")
-                self.save_screenshot_st("no_form_error")
-                return False
-            
-            # Compila username usando multiple strategie
-            st.write("📝 Compilazione username...")
-            try:
-                username_field = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.XPATH, "//input[@type='email'][@id='userNameInput']"))
-                )
-                # Pulisci campo
-                username_field.clear()
-                # Invia con Actions
-                actions = ActionChains(self.driver)
-                actions.move_to_element(username_field)
-                actions.click()
-                actions.send_keys(username)
-                actions.perform()
-                time.sleep(1)
-                
-                # Verifica inserimento
-                if username_field.get_attribute('value') != username:
-                    # Prova metodo alternativo
-                    username_field.send_keys(Keys.CONTROL + "a")  # Seleziona tutto
-                    username_field.send_keys(Keys.DELETE)  # Cancella
-                    username_field.send_keys(username)  # Reinserisci
                     
-                st.write("✅ Username inserito")
-            except:
-                st.error("❌ Errore inserimento username")
-                self.save_screenshot_st("username_error")
+            if not login_frame:
+                st.error("❌ Login frame not found")
                 return False
+                
+            # Switch to frame
+            self.scraper.driver.switch_to.frame(login_frame)
+            time.sleep(2)
             
-            # Compila password
-            st.write("📝 Compilazione password...")
+            # Verify login form presence
             try:
-                password_field = self.driver.find_element(
-                    By.XPATH, 
-                    "//input[@type='password'][@id='passwordInput']"
+                form = self.wait.until(
+                    EC.presence_of_element_located((By.ID, "loginForm"))
                 )
-                # Pulisci campo
-                password_field.clear()
-                # Invia con Actions
-                actions = ActionChains(self.driver)
-                actions.move_to_element(password_field)
-                actions.click()
-                actions.send_keys(password)
-                actions.perform()
-                time.sleep(1)
-                
-                st.write("✅ Password inserita")
-            except:
-                st.error("❌ Errore inserimento password")
-                self.save_screenshot_st("password_error")
+                st.write("✅ Login form located")
+            except TimeoutException:
+                st.error("❌ Login form not found") 
                 return False
+
+            # Fill credentials using ActionChains
+            username_field = self.wait.until(
+                EC.presence_of_element_located((By.ID, "userNameInput"))
+            )
+            password_field = self.wait.until(
+                EC.presence_of_element_located((By.ID, "passwordInput"))
+            )
+
+            # Clear and fill username
+            username_field.clear()
+            actions = ActionChains(self.scraper.driver)
+            actions.move_to_element(username_field)
+            actions.click()
+            actions.send_keys(username)
+            actions.perform()
+            time.sleep(1)
+
+            # Clear and fill password  
+            password_field.clear()
+            actions = ActionChains(self.scraper.driver)
+            actions.move_to_element(password_field)
+            actions.click()
+            actions.send_keys(password)
+            actions.perform()
+            time.sleep(1)
+
+            # Click login button
+            submit_button = self.wait.until(
+                EC.presence_of_element_located((By.ID, "submitButton"))
+            )
             
-            # Screenshot pre-submit
-            self.save_screenshot_st("pre_submit")
-            
-            # Click sul bottone submit usando JavaScript
-            st.write("🔐 Click sul bottone login...")
             try:
-                submit_button = self.wait.until(
-                    EC.presence_of_element_located((By.ID, "submitButton"))
-                )
-                
-                # Prova prima click normale
-                try:
-                    submit_button.click()
-                except:
-                    # Se fallisce, usa JavaScript
-                    self.driver.execute_script("arguments[0].click();", submit_button)
-                    # Se anche JavaScript fallisce, prova la funzione di login diretta
-                    self.driver.execute_script("Login.submitLoginRequest();")
-                
-                time.sleep(5)  # Attesa post-click
-                
+                submit_button.click()
             except:
-                st.error("❌ Errore click submit")
-                self.save_screenshot_st("submit_error")
-                return False
+                self.scraper.driver.execute_script("arguments[0].click();", submit_button)
+                
+            time.sleep(5)
+
+            # Switch back to main content
+            self.scraper.driver.switch_to.default_content()
+            time.sleep(3)
             
-            # Torna al contesto principale
-            self.driver.switch_to.default_content()
-            time.sleep(5)  # Attesa post-login
-            
-            # Screenshot post-login
-            self.save_screenshot_st("post_login")
-            
-            # Verifica login
-            st.write("✅ Verifica login...")
-            success_selectors = [
+            # Verify login success
+            success_indicators = [
                 (By.CLASS_NAME, "carusedred"),
-                (By.CLASS_NAME, "user-menu"),
-                (By.CLASS_NAME, "logged-user"),
-                (By.XPATH, "//span[contains(text(), 'INTROVABILI')]"),
-                (By.XPATH, "//a[contains(text(), 'INTROVABILI')]")
+                (By.CLASS_NAME, "user-menu"), 
+                (By.CLASS_NAME, "logged-user")
             ]
             
-            for selector_type, selector_value in success_selectors:
+            for selector_type, selector in success_indicators:
                 try:
-                    element = WebDriverWait(self.driver, 5).until(
-                        EC.presence_of_element_located((selector_type, selector_value))
+                    element = WebDriverWait(self.scraper.driver, 10).until(
+                        EC.presence_of_element_located((selector_type, selector))
                     )
-                    st.success(f"✅ Login verificato! Elemento trovato: {selector_value}")
-                    self.is_logged_in = True
+                    st.success("✅ Login successful!")
+                    self.scraper.is_logged_in = True
                     return True
                 except:
                     continue
-            
-            st.error("❌ Login fallito - Nessun elemento di verifica trovato")
-            self.save_screenshot_st("verification_failed")
+
+            st.error("❌ Login failed - No success indicators found")
             return False
             
         except Exception as e:
-            st.error(f"❌ Errore durante il login: {str(e)}")
-            self.save_screenshot_st("error")
+            st.error(f"❌ Login error: {str(e)}")
             return False
+    
+    
     def navigate_to_introvabili(self) -> bool:
         """
         Naviga alla sezione INTROVABILI
