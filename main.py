@@ -1,55 +1,57 @@
 # main.py
 import streamlit as st
-import firebase_admin
-from firebase_admin import credentials, firestore
+import pandas as pd
 from datetime import datetime
+from utils.firebase_config import FirebaseConfig
+from utils.firebase_manager import FirebaseManager
 
 # Configurazione della pagina principale
 st.set_page_config(
     page_title="Auto Arbitrage",
     page_icon="🚗",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'About': "Auto Arbitrage - Sistema di monitoraggio aste auto",
+        'Get Help': 'https://github.com/tuouser/auto-arbitrage',
+        'Report a bug': "https://github.com/tuouser/auto-arbitrage/issues"
+    }
 )
 
-# Inizializzazione Firebase con Streamlit secrets
-if 'firebase_initialized' not in st.session_state:
-    try:
-        # Crea un dizionario con le credenziali
-        cred_dict = {
-            "type": st.secrets["firebase"]["type"],
-            "project_id": st.secrets["firebase"]["project_id"],
-            "private_key_id": st.secrets["firebase"]["private_key_id"],
-            "private_key": st.secrets["firebase"]["private_key"],
-            "client_email": st.secrets["firebase"]["client_email"],
-            "client_id": st.secrets["firebase"]["client_id"],
-            "auth_uri": st.secrets["firebase"]["auth_uri"],
-            "token_uri": st.secrets["firebase"]["token_uri"],
-            "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"],
-            "universe_domain": st.secrets["firebase"]["universe_domain"]
-        }
-        
-        cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred)
-        st.session_state.db = firestore.client()
-        st.session_state.firebase_initialized = True
-        st.success("✅ Firebase inizializzato correttamente!")
-    except Exception as e:
-        st.error(f"❌ Errore nell'inizializzazione di Firebase: {str(e)}")
+# Inizializzazione Firebase e stato globale
+firebase_initialized = FirebaseConfig.initialize_firebase()
+if firebase_initialized:
+    firebase_mgr = FirebaseManager(st.session_state.db)
 
 def main():
+    # Header principale
     st.title("🚗 Auto Arbitrage")
     st.write("Sistema di monitoraggio e analisi delle aste auto")
     
-    # Menu principale nella sidebar
-    st.sidebar.title("Menu")
-    menu = st.sidebar.radio(
-        "Seleziona sezione:",
-        ["Dashboard", "Ricerca", "Analisi", "Watchlist"]
-    )
+    if not firebase_initialized:
+        st.warning("⚠️ Firebase non inizializzato. Alcune funzionalità potrebbero non essere disponibili.")
     
-    # Contenuto in base alla selezione
+    # Menu principale nella sidebar
+    with st.sidebar:
+        st.title("Menu")
+        
+        # Sezione utente
+        if firebase_initialized:
+            st.write("👤 Utente connesso")
+            # TODO: Aggiungere gestione utente
+        
+        # Menu principale
+        menu = st.radio(
+            "Seleziona sezione:",
+            ["Dashboard", "Ricerca", "Analisi", "Watchlist"]
+        )
+        
+        # Info aggiuntive
+        st.divider()
+        st.caption("Ultimo aggiornamento dati:")
+        st.caption(datetime.now().strftime("%d/%m/%Y %H:%M"))
+    
+    # Contenuto principale in base alla selezione
     if menu == "Dashboard":
         show_dashboard()
     elif menu == "Ricerca":
@@ -60,30 +62,120 @@ def main():
         show_watchlist()
 
 def show_dashboard():
-    st.header("Dashboard")
-    col1, col2, col3 = st.columns(3)
+    st.header("📊 Dashboard")
+    
+    # Metriche principali
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric(label="Aste Attive", value="12")
+        st.metric(
+            label="Aste Attive",
+            value="12",
+            delta="2",
+            delta_color="normal",
+            help="Numero di aste attualmente attive"
+        )
     with col2:
-        st.metric(label="Veicoli Monitorati", value="156")
+        st.metric(
+            label="Veicoli Monitorati",
+            value="156",
+            delta="15",
+            delta_color="normal",
+            help="Totale veicoli sotto monitoraggio"
+        )
     with col3:
-        st.metric(label="Opportunità", value="8")
+        st.metric(
+            label="Opportunità",
+            value="8",
+            delta="-2",
+            delta_color="inverse",
+            help="Opportunità con margine >20%"
+        )
+    with col4:
+        st.metric(
+            label="Margine Medio",
+            value="18.5%",
+            delta="2.1%",
+            delta_color="normal",
+            help="Margine medio delle opportunità"
+        )
+    
+    # Grafici e tabelle
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📈 Trend Opportunità")
+        # TODO: Aggiungere grafico trend
+        st.info("Grafico in sviluppo")
+        
+    with col2:
+        st.subheader("🎯 Top Opportunità")
+        if firebase_initialized:
+            # TODO: Implementare recupero top opportunità
+            st.dataframe(
+                pd.DataFrame({
+                    'Veicolo': ['Audi A3', 'BMW X1', 'Mercedes C220'],
+                    'Prezzo': ['€15.000', '€22.000', '€25.000'],
+                    'Margine': ['25%', '22%', '20%']
+                })
+            )
+        else:
+            st.info("Dati non disponibili - Firebase non inizializzato")
 
 def show_search():
+    st.header("🔍 Ricerca")
     try:
         from pages.search import main as search_main
         search_main()
     except Exception as e:
         st.error(f"Errore nel caricamento della pagina di ricerca: {str(e)}")
+        st.exception(e)
 
 def show_analysis():
-    st.header("Analisi Veicoli")
-    st.info("Sezione in sviluppo")
+    st.header("📊 Analisi Veicoli")
+    
+    # Tabs per diverse analisi
+    tab1, tab2, tab3 = st.tabs(["Trend Prezzi", "Analisi Margini", "Statistiche"])
+    
+    with tab1:
+        st.subheader("📈 Trend Prezzi")
+        st.info("Sezione in sviluppo")
+        
+    with tab2:
+        st.subheader("💰 Analisi Margini")
+        st.info("Sezione in sviluppo")
+        
+    with tab3:
+        st.subheader("📊 Statistiche")
+        st.info("Sezione in sviluppo")
 
 def show_watchlist():
-    st.header("Watchlist")
-    st.info("Sezione in sviluppo")
+    st.header("👀 Watchlist")
+    
+    if firebase_initialized:
+        # TODO: Implementare recupero watchlist
+        st.info("Watchlist in sviluppo")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("🚗 Veicoli Monitorati")
+            # TODO: Mostrare veicoli in watchlist
+        with col2:
+            st.subheader("🔔 Alert Attivi")
+            # TODO: Mostrare alert configurati
+    else:
+        st.warning("Watchlist non disponibile - Firebase non inizializzato")
 
+# Gestione errori globale
+def handle_error(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            st.error(f"Si è verificato un errore: {str(e)}")
+            st.exception(e)
+    return wrapper
+
+# Entry point con gestione errori
 if __name__ == "__main__":
-    main()
+    handle_error(main)()
