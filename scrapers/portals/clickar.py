@@ -181,7 +181,8 @@ class ClickarScraper(BaseScraper):
                 (By.CLASS_NAME, "carusedred"),
                 (By.CLASS_NAME, "user-menu"),
                 (By.CLASS_NAME, "logged-user"),
-                (By.XPATH, "//span[contains(text(), 'INTROVABILI')]")
+                (By.XPATH, "//span[contains(text(), 'INTROVABILI')]"),
+                (By.XPATH, "//a[contains(text(), 'INTROVABILI')]")
             ]
             
             for selector_type, selector_value in success_selectors:
@@ -306,3 +307,161 @@ class ClickarScraper(BaseScraper):
         except Exception as e:
             st.warning(f"Errore estrazione dati: {str(e)}")
             return None
+
+    def get_all_vehicles(self) -> list:
+        """
+        Recupera tutti i veicoli da tutte le pagine
+        Returns:
+            list: Lista dei veicoli trovati
+        """
+        vehicles = []
+        page = 1
+        retry_count = 0
+        max_retries = 3
+        
+        while retry_count < max_retries:
+            try:
+                st.write(f"📃 Elaborazione pagina {page}...")
+                
+                # Attesa caricamento tabella (prova diversi selettori)
+                table_found = any([
+                    self.wait_for_element(By.CLASS_NAME, "vehiclesTable", 10),
+                    self.wait_for_element(By.CLASS_NAME, "vehiclesList", 5),
+                    self.wait_for_element(By.CLASS_NAME, "rich-table", 5)
+                ])
+                
+                if not table_found:
+                    st.error("Tabella veicoli non trovata")
+                    break
+                
+                time.sleep(3)  # Attesa aggiuntiva per caricamento dati
+                
+                # Ricerca righe veicoli con diversi selettori
+                rows = []
+                for selector in [
+                    "vehicleRow",
+                    "rich-table-row",
+                    "vehicle-item"
+                ]:
+                    rows = self.driver.find_elements(By.CLASS_NAME, selector)
+                    if rows:
+                        break
+                
+                if not rows:
+                    st.warning(f"Nessun veicolo trovato nella pagina {page}")
+                    break
+                
+                # Estrazione dati veicoli
+                page_vehicles = []
+                for idx, row in enumerate(rows, 1):
+                    try:
+                        vehicle = self.extract_vehicle_data(row)
+                        if vehicle and vehicle.get('plate'):
+                            page_vehicles.append(vehicle)
+                            st.write(f"✅ Veicolo {idx} estratto: {vehicle['plate']}")
+                        else:
+                            st.warning(f"⚠️ Dati incompleti per veicolo {idx}")
+                    except Exception as e:
+                        st.error(f"❌ Errore estrazione veicolo {idx}: {str(e)}")
+                        continue
+                
+                vehicles.extend(page_vehicles)
+                st.success(f"Trovati {len(page_vehicles)} veicoli nella pagina {page}")
+                
+                # Gestione paginazione
+                next_page_found = False
+                for selector in [
+                    f"//a[contains(@class, 'pageNumber') and text()='{page + 1}']",
+                    f"//a[contains(@class, 'page-item') and text()='{page + 1}']",
+                    f"//span[contains(@class, 'pageNumber') and text()='{page + 1}']"
+                ]:
+                    try:
+                        next_page = self.driver.find_element(By.XPATH, selector)
+                        next_page.click()
+                        next_page_found = True
+                        time.sleep(3)
+                        break
+                    except:
+                        continue
+                
+                if not next_page_found:
+                    st.info("Nessuna pagina successiva trovata")
+                    break
+                
+                page += 1
+                retry_count = 0  # Reset retry count on successful page
+                
+            except Exception as e:
+                retry_count += 1
+                st.error(f"Errore nella pagina {page} (tentativo {retry_count}/{max_retries}): {str(e)}")
+                self.save_screenshot_st(f"page_{page}_error_{retry_count}")
+                if retry_count >= max_retries:
+                    st.error("Numero massimo di tentativi raggiunti")
+                    break
+                time.sleep(2)  # Attesa prima del retry
+                
+        st.success(f"✅ Trovati {len(vehicles)} veicoli totali")
+        return vehicles
+
+    def scrape(self, username: str = None, password: str = None) -> list:
+        """
+        Metodo principale di scraping
+        Args:
+            username: Username opzionale per il login
+            password: Password opzionale per il login
+        Returns:
+            list: Lista dei veicoli trovati o None se errore
+        """
+        try:
+            # Verifica credenziali
+            if not username or not password:
+                st.error("❌ Credenziali mancanti")
+                return None
+            
+            # Setup iniziale se necessario
+            if not self.driver:
+                if not self.setup_driver():
+                    st.error("❌ Setup driver fallito")
+                    return None
+            
+            # Login
+            st.write("🔐 Tentativo login...")
+            if not self.login(username, password):
+                st.error("❌ Login fallito")
+                return None
+            
+            # Navigazione a Introvabili
+            st.write("🔍 Navigazione a sezione Introvabili...")
+            if not self.navigate_to_introvabili():
+                st.error("❌ Navigazione fallita")
+                return None
+            
+            # Recupero veicoli
+            st.write("🚗 Recupero veicoli...")
+            vehicles = self.get_all_vehicles()
+            
+            if not vehicles:
+                st.warning("⚠️ Nessun veicolo trovato")
+                return None
+            
+            return vehicles
+            
+        except Exception as e:
+            st.error(f"❌ Errore durante lo scraping: {str(e)}")
+            self.save_screenshot_st("scrape_error")
+            return None
+        finally:
+            try:
+                self.cleanup()
+                st.write("🧹 Pulizia browser completata")
+            except Exception as e:
+                st.warning(f"⚠️ Errore durante la pulizia: {str(e)}")
+
+    # Implementazione metodi astratti richiesti da BaseScraper
+    def get_auctions(self) -> list:
+        """Non implementato per Clickar (struttura diversa)"""
+        return []
+
+    def get_vehicles(self, auction_id: str) -> list:
+        """Non implementato per Clickar (struttura diversa)"""
+        return []
