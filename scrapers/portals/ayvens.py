@@ -20,7 +20,7 @@ class AyvensScraper(BaseScraper):
         self.base_url = "https://carmarket.ayvens.com"
         self.is_logged_in = False
 
-    def login(self, username: str = "justcars", password: str = "Sandaliecalzini11!") -> bool:
+    def login(self, username: str = "", password: str = "") -> bool:
         """
         Esegue il login sul portale Ayvens
         Returns:
